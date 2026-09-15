@@ -2,7 +2,7 @@
 
 import posthog from "posthog-js";
 import { useEffect } from "react";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 /**
  * Root-layout-level error boundary -- catches errors that occur in
@@ -16,6 +16,8 @@ export default function GlobalError({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    const uiText = useUiText();
+
     useEffect(() => {
         if (posthog.__loaded) {
             posthog.captureException(error);
@@ -23,7 +25,7 @@ export default function GlobalError({
     }, [error]);
 
     return (
-        <html lang="zh-CN">
+        <html lang={uiText.locale}>
             <body>
                 <div
                     style={{

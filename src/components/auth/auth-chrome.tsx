@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogoWordmark } from "@/components/icons/logo";
+import { LanguageSelect } from "@/components/language-select";
 import { Panel } from "@/components/panel";
-import { uiText } from "@/lib/i18n";
+import { getUiText } from "@/lib/i18n/server";
 
 interface AuthChromeProps {
     /** Headline above the form. e.g. "Sign in" / "Create account". */
@@ -23,11 +24,13 @@ interface AuthChromeProps {
 //
 // This is a marketing/conversion surface -- it sells the product to people
 // who haven't bought in yet.
-export function HostedAuthChrome({
+export async function HostedAuthChrome({
     title,
     subtitle,
     children,
 }: AuthChromeProps) {
+    const uiText = await getUiText();
+
     const bullets = [
         {
             label: uiText("Choose your AI"),
@@ -131,6 +134,7 @@ export function HostedAuthChrome({
                             </p>
                         ) : null}
                     </div>
+                    <LanguageSelect />
                     {children}
                     <p className="text-center text-xs text-muted-foreground">
                         {uiText("By continuing you agree to our")}{" "}
@@ -200,6 +204,7 @@ export function SelfHostAuthChrome({
                             </p>
                         ) : null}
                     </div>
+                    <LanguageSelect />
                     {children}
                 </Panel>
                 <InstanceFooter />
@@ -208,7 +213,9 @@ export function SelfHostAuthChrome({
     );
 }
 
-function InstanceFooter() {
+async function InstanceFooter() {
+    const uiText = await getUiText();
+
     return (
         <div className="flex justify-center text-xs text-muted-foreground font-mono">
             <div className="flex items-center gap-4">

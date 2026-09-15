@@ -11,7 +11,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 interface PlaudReconnectBannerProps {
     /**
@@ -37,6 +37,8 @@ export function PlaudReconnectBanner({
     show,
     onReconnected,
 }: PlaudReconnectBannerProps) {
+    const uiText = useUiText();
+
     const [open, setOpen] = useState(false);
     // Optimistically hide the banner the moment a reconnect succeeds, so it
     // doesn't linger until the next sync clears the server-side flag. Reset

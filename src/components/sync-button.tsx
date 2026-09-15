@@ -1,7 +1,7 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { zhCN } from "date-fns/locale";
+import { enUS, zhCN } from "date-fns/locale";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +9,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,26 +21,6 @@ import { cn } from "@/lib/utils";
  * ago". Loses some precision in exchange for a button that doesn't
  * dominate the toolbar.
  */
-function compactAgo(from: Date): string {
-    // Guard against `new Date(invalid)` reaching us — `getTime()` would
-    // return NaN and every downstream branch would render "NaN m ago".
-    const ts = from.getTime();
-    if (!Number.isFinite(ts)) return "";
-    const diffMs = Date.now() - ts;
-    if (diffMs < 0) return uiText("just now");
-    const sec = Math.floor(diffMs / 1000);
-    // Everything under a minute reads as "just now" — otherwise the
-    // 45–59 s window renders "0m ago" because `min = floor(sec/60)`.
-    if (sec < 60) return uiText("just now");
-    const min = Math.floor(sec / 60);
-    if (min < 60) return uiText("{count} minutes ago", { count: min });
-    const hr = Math.floor(min / 60);
-    if (hr < 24) return uiText("{count} hours ago", { count: hr });
-    const day = Math.floor(hr / 24);
-    if (day < 7) return uiText("{count} days ago", { count: day });
-    const wk = Math.floor(day / 7);
-    return uiText("{count} weeks ago", { count: wk });
-}
 
 /**
  * Status-aware sync action.
@@ -82,6 +62,28 @@ export function SyncButton({
     onSync,
     className,
 }: SyncButtonProps) {
+    const uiText = useUiText();
+    function compactAgo(from: Date): string {
+        // Guard against `new Date(invalid)` reaching us — `getTime()` would
+        // return NaN and every downstream branch would render "NaN m ago".
+        const ts = from.getTime();
+        if (!Number.isFinite(ts)) return "";
+        const diffMs = Date.now() - ts;
+        if (diffMs < 0) return uiText("just now");
+        const sec = Math.floor(diffMs / 1000);
+        // Everything under a minute reads as "just now" — otherwise the
+        // 45–59 s window renders "0m ago" because `min = floor(sec/60)`.
+        if (sec < 60) return uiText("just now");
+        const min = Math.floor(sec / 60);
+        if (min < 60) return uiText("{count} minutes ago", { count: min });
+        const hr = Math.floor(min / 60);
+        if (hr < 24) return uiText("{count} hours ago", { count: hr });
+        const day = Math.floor(hr / 24);
+        if (day < 7) return uiText("{count} days ago", { count: day });
+        const wk = Math.floor(day / 7);
+        return uiText("{count} weeks ago", { count: wk });
+    }
+
     const failed = !isAutoSyncing && lastSyncResult?.success === false;
 
     const label = (() => {
@@ -118,7 +120,7 @@ export function SyncButton({
                         uiText("Next auto-sync {time}", {
                             time: formatDistanceToNow(nextSyncTime, {
                                 addSuffix: true,
-                                locale: zhCN,
+                                locale: uiText.locale === "zh-CN" ? zhCN : enUS,
                             }),
                         }),
                     );

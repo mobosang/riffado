@@ -7,7 +7,7 @@ import {
     getDefaultSummaryPromptConfig,
     type SummaryPromptConfiguration,
 } from "@/lib/ai/summary-presets";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 import {
     addSummarizingId,
@@ -68,6 +68,8 @@ export function useTranscriptionSummary({
     recordingId,
     transcriptionText,
 }: UseTranscriptionSummaryOptions) {
+    const uiText = useUiText();
+
     const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
     const [summarizingIds, setSummarizingIds] = useState(
         () => new Set<string>(),
@@ -91,7 +93,7 @@ export function useTranscriptionSummary({
     >(() =>
         getAllSummaryPrompts(getDefaultSummaryPromptConfig()).map((p) => ({
             id: p.id,
-            name: p.isPreset ? uiText(p.name) : p.name,
+            name: p.name,
             isPreset: p.isPreset,
         })),
     );
@@ -120,7 +122,7 @@ export function useTranscriptionSummary({
                 setSummaryPromptOptions(
                     getAllSummaryPrompts(config).map((p) => ({
                         id: p.id,
-                        name: p.isPreset ? uiText(p.name) : p.name,
+                        name: p.name,
                         isPreset: p.isPreset,
                     })),
                 );
@@ -260,6 +262,7 @@ export function useTranscriptionSummary({
                         uiError(
                             error.error || uiText("Summary generation failed"),
                             error.code,
+                            uiText.locale,
                         ),
                     );
                 }
@@ -275,7 +278,7 @@ export function useTranscriptionSummary({
             );
             setSummarizingIds(summarizingIdsRef.current);
         }
-    }, [recordingId, summaryPreset]);
+    }, [uiText, recordingId, summaryPreset]);
 
     const handleDeleteSummary = useCallback(async () => {
         if (!recordingId) return;
@@ -308,7 +311,7 @@ export function useTranscriptionSummary({
                 toast.error(uiText("Failed to delete summary"));
             }
         }
-    }, [recordingId, summaryData]);
+    }, [uiText, recordingId, summaryData]);
 
     /**
      * Imperative re-fetch trigger. Use after a re-transcribe call
@@ -331,7 +334,10 @@ export function useTranscriptionSummary({
         setSummaryExpanded,
         summaryPreset,
         setSummaryPreset,
-        summaryPromptOptions,
+        summaryPromptOptions: summaryPromptOptions.map((option) => ({
+            ...option,
+            name: option.isPreset ? uiText(option.name) : option.name,
+        })),
         handleSummarize,
         handleDeleteSummary,
         refetchSummary,

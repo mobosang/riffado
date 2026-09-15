@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { env } from "@/lib/env";
-import { uiText } from "@/lib/i18n";
+import { getUiText } from "@/lib/i18n/server";
 import { fetchLatestReleaseTag } from "@/lib/install-script";
 
 import { APP_VERSION, compareSemver, releaseUrlFor } from "@/lib/version";
@@ -25,6 +25,8 @@ import { APP_VERSION, compareSemver, releaseUrlFor } from "@/lib/version";
  * the client.
  */
 export async function UpdateBadge() {
+    const uiText = await getUiText();
+
     if (env.IS_HOSTED) return null;
     if (env.DISABLE_UPDATE_CHECK) return null;
 

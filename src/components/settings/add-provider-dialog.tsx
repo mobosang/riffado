@@ -21,7 +21,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { findPreset, getVisiblePresets } from "@/lib/ai/provider-presets";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 interface AddProviderDialogProps {
@@ -42,6 +42,8 @@ export function AddProviderDialog({
     onSuccess,
     isHosted = false,
 }: AddProviderDialogProps) {
+    const uiText = useUiText();
+
     const visiblePresets = getVisiblePresets({ isHosted });
     const [provider, setProvider] = useState("");
     const [apiKey, setApiKey] = useState("");
@@ -104,6 +106,8 @@ export function AddProviderDialog({
                     error instanceof Error
                         ? error.message
                         : uiText("Failed to add AI provider"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         } finally {
@@ -177,7 +181,7 @@ export function AddProviderDialog({
                         />
                         {isHosted && (
                             <p className="text-xs text-muted-foreground">
-                                {uiText("We can&apos;t reach")}{" "}
+                                {uiText("We can't reach")}{" "}
                                 <code className="font-mono">localhost</code>{" "}
                                 {uiText(
                                     "or other private addresses from the hosted app. To use LM Studio or Ollama, self-host Riffado (",

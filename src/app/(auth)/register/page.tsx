@@ -7,9 +7,11 @@ import { RegisterForm } from "@/components/auth/register-form";
 import { emailVerificationRequired } from "@/lib/auth";
 import { redirectIfAuthenticated } from "@/lib/auth-server";
 import { env } from "@/lib/env";
-import { uiText } from "@/lib/i18n";
+import { getUiText } from "@/lib/i18n/server";
 
 export default async function RegisterPage() {
+    const uiText = await getUiText();
+
     await redirectIfAuthenticated();
 
     // Per product decision: when registration is disabled, redirect to

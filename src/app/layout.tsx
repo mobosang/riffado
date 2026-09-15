@@ -8,6 +8,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { env } from "@/lib/env";
+import { UiLocaleProvider } from "@/lib/i18n/client";
+import { getUiLocale } from "@/lib/i18n/server";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -68,32 +70,34 @@ export const viewport: Viewport = {
     ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    const locale = await getUiLocale();
     return (
-        <html lang="zh-CN" suppressHydrationWarning>
+        <html lang={locale} suppressHydrationWarning>
             <body
                 className={`${geistSans.variable} ${geistMono.variable} antialiased`}
             >
-                <AppProgress>
-                    <ThemeProvider
-                        attribute="class"
-                        defaultTheme="system"
-                        enableSystem
-                        disableTransitionOnChange
-                    >
-                        {/*
+                <UiLocaleProvider initialLocale={locale}>
+                    <AppProgress>
+                        <ThemeProvider
+                            attribute="class"
+                            defaultTheme="system"
+                            enableSystem
+                            disableTransitionOnChange
+                        >
+                            {/*
                           Tooltip provider wraps the app so any descendant
                           `<Tooltip>` works without a local provider. 200ms
                           delay is the shadcn default-ish: short enough to
                           feel responsive, long enough to avoid firing on
                           incidental mouseovers.
                         */}
-                        <TooltipProvider delayDuration={200}>
-                            {/*
+                            <TooltipProvider delayDuration={200}>
+                                {/*
                               App-wide imperative confirm dialog. Any
                               client component can `useConfirm()` to get
                               a Promise-returning function for destructive
@@ -102,15 +106,16 @@ export default function RootLayout({
                               One instance, one dialog node, consistent
                               look + pending-state handling.
                             */}
-                            <ConfirmDialogProvider>
-                                {children}
-                                <Toaster />
-                            </ConfirmDialogProvider>
-                        </TooltipProvider>
-                    </ThemeProvider>
-                    <RybbitAnalytics />
-                    <PostHogAnalytics />
-                </AppProgress>
+                                <ConfirmDialogProvider>
+                                    {children}
+                                    <Toaster />
+                                </ConfirmDialogProvider>
+                            </TooltipProvider>
+                        </ThemeProvider>
+                        <RybbitAnalytics />
+                        <PostHogAnalytics />
+                    </AppProgress>
+                </UiLocaleProvider>
             </body>
         </html>
     );

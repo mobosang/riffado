@@ -6,8 +6,8 @@ import {
     isToday,
     isYesterday,
 } from "date-fns";
-import { zhCN } from "date-fns/locale";
-import { uiText } from "@/lib/i18n";
+import { enUS, zhCN } from "date-fns/locale";
+import { createUiText, type UiLocale } from "@/lib/i18n";
 import type { DateTimeFormat } from "@/types/common";
 
 export type { DateTimeFormat };
@@ -15,6 +15,7 @@ export type { DateTimeFormat };
 export function formatDateTime(
     date: Date | string,
     formatType: DateTimeFormat = "relative",
+    locale: UiLocale = "en",
 ): string {
     const dateObj = typeof date === "string" ? new Date(date) : date;
 
@@ -22,22 +23,32 @@ export function formatDateTime(
         case "relative":
             return formatDistanceToNow(dateObj, {
                 addSuffix: true,
-                locale: zhCN,
+                locale: locale === "zh-CN" ? zhCN : enUS,
             });
         case "absolute":
-            return format(dateObj, "yyyy年M月d日 HH:mm", { locale: zhCN });
+            return format(
+                dateObj,
+                locale === "zh-CN"
+                    ? "yyyy年M月d日 HH:mm"
+                    : "MMM d, yyyy h:mm a",
+                { locale: locale === "zh-CN" ? zhCN : enUS },
+            );
         case "iso":
             return dateObj.toISOString();
         default:
             return formatDistanceToNow(dateObj, {
                 addSuffix: true,
-                locale: zhCN,
+                locale: locale === "zh-CN" ? zhCN : enUS,
             });
     }
 }
 
 /** Recording-list group label: Today / Yesterday / This week / month / Month YYYY. */
-export function dateGroupLabel(date: Date | string): string {
+export function dateGroupLabel(
+    date: Date | string,
+    locale: UiLocale = "en",
+): string {
+    const uiText = createUiText(locale);
     const d = typeof date === "string" ? new Date(date) : date;
     if (isToday(d)) return uiText("Today");
     if (isYesterday(d)) return uiText("Yesterday");
@@ -51,6 +62,10 @@ export function dateGroupLabel(date: Date | string): string {
         return uiText("Earlier this month");
     }
     return isThisYear(d)
-        ? format(d, "M月", { locale: zhCN })
-        : format(d, "yyyy年M月", { locale: zhCN });
+        ? format(d, locale === "zh-CN" ? "M月" : "MMMM", {
+              locale: locale === "zh-CN" ? zhCN : enUS,
+          })
+        : format(d, locale === "zh-CN" ? "yyyy年M月" : "MMMM yyyy", {
+              locale: locale === "zh-CN" ? zhCN : enUS,
+          });
 }

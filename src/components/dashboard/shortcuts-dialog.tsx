@@ -7,7 +7,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 interface ShortcutsDialogProps {
     open: boolean;
@@ -19,39 +19,6 @@ interface ShortcutRow {
     description: string;
 }
 
-const groups: { title: string; rows: ShortcutRow[] }[] = [
-    {
-        title: uiText("Global shortcuts"),
-        rows: [
-            { keys: ["⌘", "K"], description: uiText("Command palette") },
-            { keys: ["?"], description: uiText("Show this cheatsheet") },
-            { keys: [","], description: uiText("Open settings") },
-            { keys: ["/"], description: uiText("Focus search") },
-        ],
-    },
-    {
-        title: uiText("Recording list"),
-        rows: [
-            { keys: ["j"], description: uiText("Next recording") },
-            { keys: ["k"], description: uiText("Previous recording") },
-            // No `Enter → Focus player` row here: selecting a recording
-            // via j/k already mounts the player; there's no separate
-            // "focus the player" gesture and adding one would conflict
-            // with the search box's Enter handler.
-        ],
-    },
-    {
-        title: uiText("Player"),
-        rows: [
-            { keys: [uiText("Space")], description: uiText("Play / pause") },
-            { keys: ["←"], description: uiText("Seek back 5s") },
-            { keys: ["→"], description: uiText("Seek forward 5s") },
-            { keys: ["↑"], description: uiText("Volume up") },
-            { keys: ["↓"], description: uiText("Volume down") },
-        ],
-    },
-];
-
 function Kbd({ children }: { children: React.ReactNode }) {
     return (
         <kbd className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-border bg-muted px-1.5 font-mono text-[11px] text-foreground shadow-sm">
@@ -61,6 +28,43 @@ function Kbd({ children }: { children: React.ReactNode }) {
 }
 
 export function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogProps) {
+    const uiText = useUiText();
+    const groups: { title: string; rows: ShortcutRow[] }[] = [
+        {
+            title: uiText("Global shortcuts"),
+            rows: [
+                { keys: ["⌘", "K"], description: uiText("Command palette") },
+                { keys: ["?"], description: uiText("Show this cheatsheet") },
+                { keys: [","], description: uiText("Open settings") },
+                { keys: ["/"], description: uiText("Focus search") },
+            ],
+        },
+        {
+            title: uiText("Recording list"),
+            rows: [
+                { keys: ["j"], description: uiText("Next recording") },
+                { keys: ["k"], description: uiText("Previous recording") },
+                // No `Enter → Focus player` row here: selecting a recording
+                // via j/k already mounts the player; there's no separate
+                // "focus the player" gesture and adding one would conflict
+                // with the search box's Enter handler.
+            ],
+        },
+        {
+            title: uiText("Player"),
+            rows: [
+                {
+                    keys: [uiText("Space")],
+                    description: uiText("Play / pause"),
+                },
+                { keys: ["←"], description: uiText("Seek back 5s") },
+                { keys: ["→"], description: uiText("Seek forward 5s") },
+                { keys: ["↑"], description: uiText("Volume up") },
+                { keys: ["↓"], description: uiText("Volume down") },
+            ],
+        },
+    ];
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-lg">

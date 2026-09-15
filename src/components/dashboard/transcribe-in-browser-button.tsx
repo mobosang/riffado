@@ -4,7 +4,7 @@ import { Cpu, Loader2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 import { transcribeInBrowser } from "@/lib/transcription/browser-transcriber";
 import type { TranscriptionModel } from "@/types/transcription";
@@ -26,13 +26,6 @@ type Phase =
     | "loading-model"
     | "transcribing";
 
-const PHASE_LABEL: Record<Exclude<Phase, "idle">, string> = {
-    "downloading-audio": uiText("Downloading audio…"),
-    "decoding-audio": uiText("Decoding audio…"),
-    "loading-model": uiText("Loading Whisper (one-time download)…"),
-    transcribing: uiText("Transcribing locally…"),
-};
-
 /**
  * Run Whisper in the browser via Transformers.js, then POST the result
  * to `/api/recordings/[id]/transcription/from-browser`. No API key
@@ -50,6 +43,14 @@ export function TranscribeInBrowserButton({
     onComplete,
     model = "whisper-base",
 }: Props) {
+    const uiText = useUiText();
+    const PHASE_LABEL: Record<Exclude<Phase, "idle">, string> = {
+        "downloading-audio": uiText("Downloading audio…"),
+        "decoding-audio": uiText("Decoding audio…"),
+        "loading-model": uiText("Loading Whisper (one-time download)…"),
+        transcribing: uiText("Transcribing locally…"),
+    };
+
     const [phase, setPhase] = useState<Phase>("idle");
 
     const run = useCallback(async () => {
@@ -102,12 +103,14 @@ export function TranscribeInBrowserButton({
                     err instanceof Error
                         ? err.message
                         : uiText("Browser transcription failed"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         } finally {
             setPhase("idle");
         }
-    }, [recordingId, model, onComplete]);
+    }, [uiText, recordingId, model, onComplete]);
 
     const busy = phase !== "idle";
 

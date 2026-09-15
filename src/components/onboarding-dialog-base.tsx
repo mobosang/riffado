@@ -3,7 +3,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type * as React from "react";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 const OnboardingDialogRoot = DialogPrimitive.Root;
@@ -46,6 +46,8 @@ function OnboardingDialogContent({
      */
     hideCloseButton?: boolean;
 }) {
+    const uiText = useUiText();
+
     return (
         <OnboardingDialogPortal>
             <OnboardingDialogOverlay />

@@ -16,10 +16,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/use-settings";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { requestNotificationPermission } from "@/lib/notifications/browser";
 
 export function NotificationsSection() {
+    const uiText = useUiText();
+
     const {
         isLoadingSettings,
         isSavingSettings,

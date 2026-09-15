@@ -9,7 +9,7 @@ import { MetalButton } from "@/components/metal-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { sendVerificationEmail, signUp } from "@/lib/auth-client";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 const RESEND_COOLDOWN_MS = 30_000;
@@ -30,6 +30,8 @@ interface RegisterFormProps {
  * Page chrome (logo, headings, panel, background) is owned by the route.
  */
 export function RegisterForm({ requireEmailVerification }: RegisterFormProps) {
+    const uiText = useUiText();
+
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -74,6 +76,7 @@ export function RegisterForm({ requireEmailVerification }: RegisterFormProps) {
                         result.error.message ||
                             uiText("Failed to create account"),
                         result.error.code,
+                        uiText.locale,
                     ),
                 );
                 return;
@@ -99,7 +102,7 @@ export function RegisterForm({ requireEmailVerification }: RegisterFormProps) {
                 error instanceof Error
                     ? error.message
                     : uiText("Failed to create account");
-            toast.error(uiError(message));
+            toast.error(uiError(message, undefined, uiText.locale));
         } finally {
             setIsLoading(false);
         }
@@ -132,6 +135,7 @@ export function RegisterForm({ requireEmailVerification }: RegisterFormProps) {
                         result.error.message ||
                             uiText("Failed to resend verification email"),
                         result.error.code,
+                        uiText.locale,
                     ),
                 );
                 return;
@@ -144,7 +148,7 @@ export function RegisterForm({ requireEmailVerification }: RegisterFormProps) {
                 error instanceof Error
                     ? error.message
                     : uiText("Failed to resend verification email");
-            toast.error(uiError(message));
+            toast.error(uiError(message, undefined, uiText.locale));
         } finally {
             setIsResending(false);
         }

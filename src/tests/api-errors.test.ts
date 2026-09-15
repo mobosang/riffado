@@ -79,8 +79,12 @@ describe("getApiErrorMessage", () => {
             error: "Invalid code",
             code: ErrorCode.PLAUD_OTP_INVALID,
         });
-        expect(await getApiErrorMessage(res)).toBe(
-            uiText("The verification code is invalid. Please try again."),
+        expect(await getApiErrorMessage(res, undefined, "zh-CN")).toBe(
+            uiText(
+                "The verification code is invalid. Please try again.",
+                {},
+                "zh-CN",
+            ),
         );
     });
 

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatDateTime } from "@/lib/format-date";
 import { formatDurationMs } from "@/lib/format-duration";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { recordingAudioDownloadPath } from "@/lib/recordings/filename";
 import { cn } from "@/lib/utils";
 import type { DateTimeFormat } from "@/types/common";
@@ -41,6 +41,8 @@ export function RecordingRow({
     onDelete: (recording: Recording) => Promise<void>;
     registerRef: (id: string, el: HTMLButtonElement | null) => void;
 }) {
+    const uiText = useUiText();
+
     const confirm = useConfirm();
     return (
         <div
@@ -100,6 +102,7 @@ export function RecordingRow({
                             {formatDateTime(
                                 recording.startTime,
                                 dateTimeFormat,
+                                uiText.locale,
                             )}
                         </p>
                     )}

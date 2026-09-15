@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 export interface PendingUpload {
@@ -21,6 +21,8 @@ export function PendingUploadRow({
     upload: PendingUpload;
     rowPadding: string;
 }) {
+    const uiText = useUiText();
+
     return (
         <div className={cn("flex items-center gap-3", rowPadding)}>
             <Loader2 className="size-4 animate-spin text-primary" />

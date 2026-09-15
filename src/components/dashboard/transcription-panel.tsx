@@ -23,7 +23,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useTranscriptionSummary } from "@/hooks/use-transcription-summary";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import type { Recording } from "@/types/recording";
 
 interface Transcription {
@@ -53,12 +53,6 @@ interface TranscriptionPanelProps {
     onTranscribeComplete?: () => void;
 }
 
-function transcriptSourceLabel(source: string): string {
-    if (source === "plaud") return "Plaud";
-    if (source === "mixed") return uiText("Mix");
-    return uiText("Your provider");
-}
-
 export function TranscriptionPanel({
     recording,
     transcription,
@@ -67,6 +61,13 @@ export function TranscriptionPanel({
     onTranscribe,
     onTranscribeComplete,
 }: TranscriptionPanelProps) {
+    const uiText = useUiText();
+    function transcriptSourceLabel(source: string): string {
+        if (source === "plaud") return "Plaud";
+        if (source === "mixed") return uiText("Mix");
+        return uiText("Your provider");
+    }
+
     const transcriptList: TranscriptOption[] =
         transcripts && transcripts.length > 0
             ? transcripts

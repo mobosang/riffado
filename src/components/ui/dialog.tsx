@@ -3,7 +3,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 import type * as React from "react";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 import { cn } from "@/lib/utils";
 
@@ -55,6 +55,8 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
     showCloseButton?: boolean;
 }) {
+    const uiText = useUiText();
+
     return (
         <DialogPortal data-slot="dialog-portal">
             <DialogOverlay />

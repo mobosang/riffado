@@ -22,7 +22,7 @@ import { useListKeyboardNav } from "@/hooks/use-list-keyboard-nav";
 import { useTheme } from "@/hooks/use-theme";
 import { useTranscribeQueue } from "@/hooks/use-transcribe-queue";
 import { useUploadQueue } from "@/hooks/use-upload-queue";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 import {
     requestNotificationPermission,
@@ -113,6 +113,8 @@ export function Workstation({
     plaudNeedsReconnect,
     isHosted,
 }: WorkstationProps) {
+    const uiText = useUiText();
+
     const { refresh } = useRouter();
     const [currentRecording, setCurrentRecording] = useState<Recording | null>(
         recordings.length > 0 ? recordings[0] : null,
@@ -213,15 +215,18 @@ export function Workstation({
                     const granted = await requestNotificationPermission();
                     if (!granted) return;
                     if (newRecordings > 0) {
-                        showNewRecordingNotification(newRecordings);
+                        showNewRecordingNotification(
+                            newRecordings,
+                            uiText.locale,
+                        );
                     } else {
-                        showSyncCompleteNotification();
+                        showSyncCompleteNotification(uiText.locale);
                     }
                 })();
             }
         },
         onError: (error) => {
-            toast.error(uiError(error));
+            toast.error(uiError(error, undefined, uiText.locale));
         },
     });
 
@@ -334,7 +339,7 @@ export function Workstation({
                 throw err;
             }
         },
-        [currentRecording, visibleRecordings, refresh],
+        [uiText, currentRecording, visibleRecordings, refresh],
     );
 
     const handleRenamed = useCallback(

@@ -15,29 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useSettings } from "@/hooks/use-settings";
-import { uiText } from "@/lib/i18n";
-
-const exportFormatOptions = [
-    {
-        label: "JSON",
-        value: "json",
-        description: uiText("Structured data format"),
-    },
-    { label: "TXT", value: "txt", description: uiText("Plain text format") },
-    { label: "SRT", value: "srt", description: uiText("Subtitle format") },
-    {
-        label: "VTT",
-        value: "vtt",
-        description: uiText("WebVTT subtitle format"),
-    },
-];
-
-const backupFrequencyOptions = [
-    { label: uiText("Never"), value: "never" },
-    { label: uiText("Daily"), value: "daily" },
-    { label: uiText("Weekly"), value: "weekly" },
-    { label: uiText("Monthly"), value: "monthly" },
-];
+import { useUiText } from "@/lib/i18n/client";
 
 interface ExportJobStatus {
     id: string;
@@ -74,6 +52,32 @@ interface ExportSectionProps {
 }
 
 export function ExportSection({ onReRunOnboarding }: ExportSectionProps) {
+    const uiText = useUiText();
+    const exportFormatOptions = [
+        {
+            label: "JSON",
+            value: "json",
+            description: uiText("Structured data format"),
+        },
+        {
+            label: "TXT",
+            value: "txt",
+            description: uiText("Plain text format"),
+        },
+        { label: "SRT", value: "srt", description: uiText("Subtitle format") },
+        {
+            label: "VTT",
+            value: "vtt",
+            description: uiText("WebVTT subtitle format"),
+        },
+    ];
+    const backupFrequencyOptions = [
+        { label: uiText("Never"), value: "never" },
+        { label: uiText("Daily"), value: "daily" },
+        { label: uiText("Weekly"), value: "weekly" },
+        { label: uiText("Monthly"), value: "monthly" },
+    ];
+
     const { isLoadingSettings, isSavingSettings, setIsLoadingSettings } =
         useSettings();
     const [defaultExportFormat, setDefaultExportFormat] = useState("json");
@@ -157,7 +161,7 @@ export function ExportSection({ onReRunOnboarding }: ExportSectionProps) {
             cancelled = true;
             clearTimeout(timer);
         };
-    }, [backupJob]);
+    }, [uiText, backupJob]);
 
     const handleExportBackupSettingChange = async (updates: {
         defaultExportFormat?: string;

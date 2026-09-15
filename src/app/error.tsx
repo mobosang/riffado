@@ -3,7 +3,7 @@
 import posthog from "posthog-js";
 import { useEffect } from "react";
 import { MetalButton } from "@/components/metal-button";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 /**
  * App Router error boundary. Catches render errors that `capture_exceptions`
@@ -17,6 +17,8 @@ export default function ErrorBoundary({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    const uiText = useUiText();
+
     useEffect(() => {
         if (posthog.__loaded) {
             posthog.captureException(error);

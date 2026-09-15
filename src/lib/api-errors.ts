@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import type { ErrorCode } from "@/lib/errors";
-import { uiText } from "@/lib/i18n";
+import { createUiText, type UiLocale } from "@/lib/i18n";
 import { uiError } from "@/lib/i18n/errors";
 import { buildReportBugUrl } from "@/lib/report-bug";
 
@@ -33,10 +33,11 @@ export async function parseApiError(response: Response): Promise<ApiErrorBody> {
 
 export async function getApiErrorMessage(
     response: Response,
-    fallback = uiText("Request failed"),
+    fallback = "Request failed",
+    locale: UiLocale = "en",
 ): Promise<string> {
     const body = await parseApiError(response);
-    return uiError(body.error || fallback, body.code);
+    return uiError(body.error || fallback, body.code, locale);
 }
 
 export interface ToastApiErrorOptions {
@@ -48,11 +49,14 @@ export interface ToastApiErrorOptions {
 export async function toastApiError(
     response: Response,
     opts: ToastApiErrorOptions = {},
+    locale: UiLocale = "en",
 ): Promise<ApiErrorBody> {
+    const uiText = createUiText(locale);
     const body = await parseApiError(response);
     const message = uiError(
         body.error || opts.fallback || uiText("Request failed"),
         body.code,
+        locale,
     );
     const errorId =
         typeof body.details?.errorId === "string"

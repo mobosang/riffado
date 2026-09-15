@@ -9,7 +9,7 @@ import { MetalButton } from "@/components/metal-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signIn } from "@/lib/auth-client";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 interface LoginFormProps {
@@ -40,6 +40,8 @@ export function LoginForm({
     registrationEnabled = true,
     smtpConfigured = false,
 }: LoginFormProps) {
+    const uiText = useUiText();
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -61,6 +63,7 @@ export function LoginForm({
                         result.error.message ||
                             uiText("Invalid email or password"),
                         result.error.code,
+                        uiText.locale,
                     ),
                 );
                 return;
@@ -80,7 +83,7 @@ export function LoginForm({
                 error instanceof Error
                     ? error.message
                     : uiText("Invalid email or password");
-            toast.error(uiError(message));
+            toast.error(uiError(message, undefined, uiText.locale));
         } finally {
             setIsLoading(false);
         }

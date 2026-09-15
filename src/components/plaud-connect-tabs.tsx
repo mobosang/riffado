@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toastApiError } from "@/lib/api-errors";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 import {
     DEFAULT_SERVER_KEY,
@@ -50,18 +50,13 @@ const ISSUE_URL = "https://github.com/riffado/riffado/issues/65";
 const TOKEN_GRAB_SNIPPET =
     'copy(JSON.parse(localStorage.pld_tokenstr).replace(/^bearer /i,""))';
 
-function regionLabel(base: string): string {
-    if (base.includes("euc1")) return uiText("EU (Frankfurt)");
-    if (base.includes("apse1")) return uiText("Asia Pacific (Singapore)");
-    if (base.includes("api.plaud.ai")) return uiText("Global");
-    return base;
-}
-
 interface PlaudConnectTabsProps {
     onConnected: () => void;
 }
 
 export function PlaudConnectTabs({ onConnected }: PlaudConnectTabsProps) {
+    const uiText = useUiText();
+
     const [hasConnector, setHasConnector] = useState<boolean>(false);
     useEffect(() => {
         let cancelled = false;
@@ -150,6 +145,8 @@ function ConnectorPane({
     onUseEmail,
     onUseToken,
 }: ConnectorPaneProps) {
+    const uiText = useUiText();
+
     const [isLoading, setIsLoading] = useState(false);
 
     const handleConnect = useCallback(async () => {
@@ -171,10 +168,14 @@ function ConnectorPane({
                 }),
             });
             if (!res.ok) {
-                await toastApiError(res, {
-                    fallback: uiText("Failed to connect Plaud"),
-                    errorContext: "connect Plaud via connector extension",
-                });
+                await toastApiError(
+                    res,
+                    {
+                        fallback: uiText("Failed to connect Plaud"),
+                        errorContext: "connect Plaud via connector extension",
+                    },
+                    uiText.locale,
+                );
                 return;
             }
             toast.success(uiText("Plaud account connected"));
@@ -185,12 +186,14 @@ function ConnectorPane({
                     err instanceof Error
                         ? err.message
                         : uiText("Failed to connect"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         } finally {
             setIsLoading(false);
         }
-    }, [onConnected]);
+    }, [uiText, onConnected]);
 
     if (!hasConnector) {
         return (
@@ -283,6 +286,14 @@ interface EmailCodePaneProps {
 }
 
 function EmailCodePane({ onConnected, onSwitchToToken }: EmailCodePaneProps) {
+    const uiText = useUiText();
+    function regionLabel(base: string): string {
+        if (base.includes("euc1")) return uiText("EU (Frankfurt)");
+        if (base.includes("apse1")) return uiText("Asia Pacific (Singapore)");
+        if (base.includes("api.plaud.ai")) return uiText("Global");
+        return base;
+    }
+
     const [step, setStep] = useState<EmailStep>("email");
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
@@ -317,10 +328,14 @@ function EmailCodePane({ onConnected, onSwitchToToken }: EmailCodePaneProps) {
                 body: JSON.stringify({ email: trimmed }),
             });
             if (!res.ok) {
-                await toastApiError(res, {
-                    fallback: uiText("Failed to send code"),
-                    errorContext: "send Plaud verification code",
-                });
+                await toastApiError(
+                    res,
+                    {
+                        fallback: uiText("Failed to send code"),
+                        errorContext: "send Plaud verification code",
+                    },
+                    uiText.locale,
+                );
                 return;
             }
             const data = await res.json();
@@ -335,12 +350,14 @@ function EmailCodePane({ onConnected, onSwitchToToken }: EmailCodePaneProps) {
                     err instanceof Error
                         ? err.message
                         : uiText("Failed to send code"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         } finally {
             setIsLoading(false);
         }
-    }, [email, lastSentAt]);
+    }, [uiText, email, lastSentAt]);
 
     const handleVerify = useCallback(async () => {
         const trimmed = code.trim();
@@ -361,10 +378,14 @@ function EmailCodePane({ onConnected, onSwitchToToken }: EmailCodePaneProps) {
                 }),
             });
             if (!res.ok) {
-                await toastApiError(res, {
-                    fallback: uiText("Verification failed"),
-                    errorContext: "verify Plaud OTP code",
-                });
+                await toastApiError(
+                    res,
+                    {
+                        fallback: uiText("Verification failed"),
+                        errorContext: "verify Plaud OTP code",
+                    },
+                    uiText.locale,
+                );
                 return;
             }
             toast.success(uiText("Plaud account connected"));
@@ -375,12 +396,14 @@ function EmailCodePane({ onConnected, onSwitchToToken }: EmailCodePaneProps) {
                     err instanceof Error
                         ? err.message
                         : uiText("Verification failed"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         } finally {
             setIsLoading(false);
         }
-    }, [code, otpToken, apiBase, email, onConnected]);
+    }, [uiText, code, otpToken, apiBase, email, onConnected]);
 
     if (step === "email") {
         return (
@@ -520,6 +543,8 @@ function ConsoleSnippet({
     snippet: string;
     ariaLabel?: string;
 }) {
+    const uiText = useUiText();
+
     const [copied, setCopied] = useState(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(
@@ -581,6 +606,8 @@ interface PasteTokenPaneProps {
 }
 
 function PasteTokenPane({ onConnected, onUseConnector }: PasteTokenPaneProps) {
+    const uiText = useUiText();
+
     const [token, setToken] = useState("");
     const [serverKey, setServerKey] =
         useState<PlaudServerKey>(DEFAULT_SERVER_KEY);
@@ -614,10 +641,14 @@ function PasteTokenPane({ onConnected, onUseConnector }: PasteTokenPaneProps) {
                 }),
             });
             if (!res.ok) {
-                await toastApiError(res, {
-                    fallback: uiText("Failed to connect Plaud"),
-                    errorContext: "connect Plaud via pasted access token",
-                });
+                await toastApiError(
+                    res,
+                    {
+                        fallback: uiText("Failed to connect Plaud"),
+                        errorContext: "connect Plaud via pasted access token",
+                    },
+                    uiText.locale,
+                );
                 return;
             }
             toast.success(uiText("Plaud account connected"));
@@ -628,12 +659,14 @@ function PasteTokenPane({ onConnected, onUseConnector }: PasteTokenPaneProps) {
                     err instanceof Error
                         ? err.message
                         : uiText("Failed to connect Plaud"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         } finally {
             setIsLoading(false);
         }
-    }, [token, apiBase, serverKey, onConnected]);
+    }, [uiText, token, apiBase, serverKey, onConnected]);
 
     return (
         <div className="space-y-4">
@@ -650,7 +683,7 @@ function PasteTokenPane({ onConnected, onUseConnector }: PasteTokenPaneProps) {
                         onClick={onUseConnector}
                         className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors"
                     >
-                        {uiText("Use the connector&nbsp;→")}
+                        {uiText("Use the connector →")}
                     </button>
                 </p>
             </div>
@@ -664,7 +697,7 @@ function PasteTokenPane({ onConnected, onUseConnector }: PasteTokenPaneProps) {
                     rel="noopener noreferrer"
                     className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors"
                 >
-                    {uiText("Why? · #65&nbsp;→")}
+                    {uiText("Why? · #65 →")}
                 </a>
             </p>
 

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/hooks/use-theme";
 import { signOut } from "@/lib/auth-client";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 interface UserMenuProps {
@@ -54,6 +54,8 @@ export function UserMenu({
     onOpenSettings,
     onOpenShortcuts,
 }: UserMenuProps) {
+    const uiText = useUiText();
+
     const { push, refresh } = useRouter();
     const { theme, setTheme } = useTheme(initialTheme);
 

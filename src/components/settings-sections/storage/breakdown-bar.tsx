@@ -1,7 +1,7 @@
 "use client";
 
 import { formatBytes } from "@/lib/format-bytes";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 /**
  * Shared color stops between the breakdown bar and the largest list.
@@ -39,6 +39,8 @@ interface BreakdownBarProps {
  * donut (linear extent vs. arc length). Same data, less guesswork.
  */
 export function BreakdownBar({ segments, totalBytes }: BreakdownBarProps) {
+    const uiText = useUiText();
+
     if (totalBytes <= 0 || segments.length === 0) return null;
 
     const topBytes = segments.reduce((sum, s) => sum + s.bytes, 0);

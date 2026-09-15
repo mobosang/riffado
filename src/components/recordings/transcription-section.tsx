@@ -22,7 +22,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useTranscriptionSummary } from "@/hooks/use-transcription-summary";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 interface TranscriptionSectionProps {
@@ -38,6 +38,8 @@ export function TranscriptionSection({
     initialLanguage,
     initialType,
 }: TranscriptionSectionProps) {
+    const uiText = useUiText();
+
     const [transcription, setTranscription] = useState(initialTranscription);
     const [detectedLanguage, setDetectedLanguage] = useState(initialLanguage);
     const [transcriptionType, setTranscriptionType] = useState(initialType);
@@ -85,6 +87,7 @@ export function TranscriptionSection({
                         uiError(
                             errorData.error || uiText("Transcription failed"),
                             errorData.code,
+                            uiText.locale,
                         ),
                     );
                 }
@@ -173,7 +176,7 @@ export function TranscriptionSection({
                             </p>
                             <p className="text-sm text-text-muted">
                                 {uiText(
-                                    "Click &quot;Transcribe&quot; to generate a transcription",
+                                    'Click "Transcribe" to generate a transcription',
                                 )}
                             </p>
                         </Panel>
@@ -360,7 +363,7 @@ export function TranscriptionSection({
                                 <ListChecks className="size-10 text-muted-foreground mx-auto mb-3" />
                                 <p className="text-sm text-muted-foreground">
                                     {uiText(
-                                        "No summary yet. Click &quot;Summarize&quot; to generate one.",
+                                        'No summary yet. Click "Summarize" to generate one.',
                                     )}
                                 </p>
                             </Panel>

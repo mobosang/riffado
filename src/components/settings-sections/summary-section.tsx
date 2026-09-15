@@ -28,11 +28,8 @@ import type {
     CustomSummaryPrompt,
     SummaryPromptConfiguration,
 } from "@/lib/ai/summary-presets";
-import { uiText } from "@/lib/i18n";
-import {
-    UI_OUTPUT_LANGUAGES as AI_OUTPUT_LANGUAGES,
-    UI_SUMMARY_PRESETS as SUMMARY_PRESETS,
-} from "@/lib/i18n/presets";
+import { useUiText } from "@/lib/i18n/client";
+import { getUiPresets } from "@/lib/i18n/presets";
 
 type EditingPrompt = {
     id?: string;
@@ -45,6 +42,12 @@ type EditingPrompt = {
 const AUTO_PRESET_DEFAULT = "__default__";
 
 export function SummarySection() {
+    const uiText = useUiText();
+    const {
+        UI_OUTPUT_LANGUAGES: AI_OUTPUT_LANGUAGES,
+        UI_SUMMARY_PRESETS: SUMMARY_PRESETS,
+    } = getUiPresets(uiText.locale);
+
     const confirm = useConfirm();
     const { isLoadingSettings, isSavingSettings, setIsLoadingSettings } =
         useSettings();
@@ -689,13 +692,13 @@ Transcription:
                                     ) && (
                                         <p className="text-xs text-amber-600 dark:text-amber-500">
                                             {uiText(
-                                                "This prompt doesn&apos;t include",
+                                                "This prompt doesn't include",
                                             )}{" "}
                                             <code className="px-1 py-0.5 bg-muted rounded">
                                                 {"{transcription}"}
                                             </code>{" "}
                                             {uiText(
-                                                "-- the transcript won&apos;t be inserted, and the model will only see this literal text.",
+                                                "-- the transcript won't be inserted, and the model will only see this literal text.",
                                             )}
                                         </p>
                                     )}

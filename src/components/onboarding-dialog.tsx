@@ -18,7 +18,7 @@ import {
     OnboardingStepWelcome,
 } from "@/components/onboarding-steps";
 import { Button } from "@/components/ui/button";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 type OnboardingStep = "welcome" | "plaud" | "ai-provider" | "complete";
 
@@ -49,6 +49,8 @@ export function OnboardingDialog({
     onComplete,
     mandatory = false,
 }: OnboardingDialogProps) {
+    const uiText = useUiText();
+
     const { refresh } = useRouter();
     const [step, setStep] = useState<OnboardingStep>("welcome");
     const [hasPlaudConnection, setHasPlaudConnection] = useState(false);

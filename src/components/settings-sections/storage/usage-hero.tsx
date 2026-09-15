@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { formatBytes } from "@/lib/format-bytes";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { formatUiHoursCompact as formatHoursCompact } from "@/lib/i18n/format";
 
 interface UsageHeroProps {
@@ -41,6 +41,8 @@ export function UsageHero({
     diskFreeBytes,
     quotaBytes,
 }: UsageHeroProps) {
+    const uiText = useUiText();
+
     const avgBytes =
         recordingCount > 0 ? Math.round(usedBytes / recordingCount) : 0;
 
@@ -93,7 +95,10 @@ export function UsageHero({
                         {totalDurationMs > 0 && (
                             <>
                                 {" · "}
-                                {formatHoursCompact(totalDurationMs)}{" "}
+                                {formatHoursCompact(
+                                    totalDurationMs,
+                                    uiText.locale,
+                                )}{" "}
                                 {uiText("total")}
                             </>
                         )}
@@ -136,6 +141,8 @@ interface CapacityRingProps {
  * matches the convention users expect from capacity meters.
  */
 function CapacityRing({ used, total, usedBytes }: CapacityRingProps) {
+    const uiText = useUiText();
+
     const id = useId();
     const pct = Math.min(1, Math.max(0, total > 0 ? used / total : 0));
     const size = 132;

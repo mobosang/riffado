@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 import { DEFAULT_WEBHOOK_EVENTS, type WebhookEndpoint } from "./webhook-types";
 
@@ -68,6 +68,8 @@ export function WebhookEditorDialog({
     events,
     onSaved,
 }: Props) {
+    const uiText = useUiText();
+
     const [form, setForm] = useState<WebhookForm>(() =>
         buildForm(editingWebhook, events),
     );
@@ -138,6 +140,8 @@ export function WebhookEditorDialog({
                     error instanceof Error
                         ? error.message
                         : uiText("Failed to save webhook"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         } finally {

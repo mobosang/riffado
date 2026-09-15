@@ -14,64 +14,65 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useSettings } from "@/hooks/use-settings";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 // ISO-639-1 codes from Whisper's supported-languages list. Sticking to
 // languages with non-trivial user populations to keep the dropdown
 // scannable. Auto-detect already covers everything Whisper handles —
 // these entries just let users force a language for noisy recordings
 // or when auto-detect mis-routes (Slavic / Romance neighbours).
-const languageOptions = [
-    { label: uiText("Auto-detect"), value: null },
-    { label: uiText("English"), value: "en" },
-    { label: uiText("Spanish"), value: "es" },
-    { label: uiText("French"), value: "fr" },
-    { label: uiText("German"), value: "de" },
-    { label: uiText("Italian"), value: "it" },
-    { label: uiText("Portuguese"), value: "pt" },
-    { label: uiText("Dutch"), value: "nl" },
-    { label: uiText("Swedish"), value: "sv" },
-    { label: uiText("Danish"), value: "da" },
-    { label: uiText("Norwegian"), value: "no" },
-    { label: uiText("Finnish"), value: "fi" },
-    { label: uiText("Polish"), value: "pl" },
-    { label: uiText("Czech"), value: "cs" },
-    { label: uiText("Ukrainian"), value: "uk" },
-    { label: uiText("Russian"), value: "ru" },
-    { label: uiText("Romanian"), value: "ro" },
-    { label: uiText("Hungarian"), value: "hu" },
-    { label: uiText("Greek"), value: "el" },
-    { label: uiText("Turkish"), value: "tr" },
-    { label: uiText("Arabic"), value: "ar" },
-    { label: uiText("Hebrew"), value: "he" },
-    { label: uiText("Hindi"), value: "hi" },
-    { label: uiText("Indonesian"), value: "id" },
-    { label: uiText("Vietnamese"), value: "vi" },
-    { label: uiText("Thai"), value: "th" },
-    { label: uiText("Chinese"), value: "zh" },
-    { label: uiText("Japanese"), value: "ja" },
-    { label: uiText("Korean"), value: "ko" },
-];
-
-const qualityOptions = [
-    {
-        label: uiText("Fast"),
-        value: "fast",
-        description: uiText("Faster transcription, lower accuracy"),
-    },
-    {
-        label: uiText("Balanced"),
-        value: "balanced",
-        description: uiText("Good balance of speed and accuracy"),
-    },
-    {
-        label: uiText("Accurate"),
-        value: "accurate",
-        description: uiText("Highest accuracy, slower transcription"),
-    },
-];
 
 export function TranscriptionSection() {
+    const uiText = useUiText();
+    const languageOptions = [
+        { label: uiText("Auto-detect"), value: null },
+        { label: uiText("English"), value: "en" },
+        { label: uiText("Spanish"), value: "es" },
+        { label: uiText("French"), value: "fr" },
+        { label: uiText("German"), value: "de" },
+        { label: uiText("Italian"), value: "it" },
+        { label: uiText("Portuguese"), value: "pt" },
+        { label: uiText("Dutch"), value: "nl" },
+        { label: uiText("Swedish"), value: "sv" },
+        { label: uiText("Danish"), value: "da" },
+        { label: uiText("Norwegian"), value: "no" },
+        { label: uiText("Finnish"), value: "fi" },
+        { label: uiText("Polish"), value: "pl" },
+        { label: uiText("Czech"), value: "cs" },
+        { label: uiText("Ukrainian"), value: "uk" },
+        { label: uiText("Russian"), value: "ru" },
+        { label: uiText("Romanian"), value: "ro" },
+        { label: uiText("Hungarian"), value: "hu" },
+        { label: uiText("Greek"), value: "el" },
+        { label: uiText("Turkish"), value: "tr" },
+        { label: uiText("Arabic"), value: "ar" },
+        { label: uiText("Hebrew"), value: "he" },
+        { label: uiText("Hindi"), value: "hi" },
+        { label: uiText("Indonesian"), value: "id" },
+        { label: uiText("Vietnamese"), value: "vi" },
+        { label: uiText("Thai"), value: "th" },
+        { label: uiText("Chinese"), value: "zh" },
+        { label: uiText("Japanese"), value: "ja" },
+        { label: uiText("Korean"), value: "ko" },
+    ];
+    const qualityOptions = [
+        {
+            label: uiText("Fast"),
+            value: "fast",
+            description: uiText("Faster transcription, lower accuracy"),
+        },
+        {
+            label: uiText("Balanced"),
+            value: "balanced",
+            description: uiText("Good balance of speed and accuracy"),
+        },
+        {
+            label: uiText("Accurate"),
+            value: "accurate",
+            description: uiText("Highest accuracy, slower transcription"),
+        },
+    ];
+
     const { isLoadingSettings, isSavingSettings, setIsLoadingSettings } =
         useSettings();
     const [autoTranscribe, setAutoTranscribe] = useState(false);

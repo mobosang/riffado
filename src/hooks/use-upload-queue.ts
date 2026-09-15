@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { PendingUpload } from "@/components/dashboard/recording-list";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 interface Options {
@@ -23,6 +23,8 @@ interface Options {
  * in a row still fires a `change` event.
  */
 export function useUploadQueue({ onUploadComplete }: Options) {
+    const uiText = useUiText();
+
     const [isUploading, setIsUploading] = useState(false);
     const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
     const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +71,7 @@ export function useUploadQueue({ onUploadComplete }: Options) {
                         uiError(
                             error.error || uiText("Upload failed"),
                             error.code,
+                            uiText.locale,
                         ),
                     );
                 }
@@ -81,7 +84,7 @@ export function useUploadQueue({ onUploadComplete }: Options) {
                 );
             }
         },
-        [onUploadComplete],
+        [uiText, onUploadComplete],
     );
 
     const triggerUpload = useCallback(() => {

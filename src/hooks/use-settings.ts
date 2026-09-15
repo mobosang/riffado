@@ -1,8 +1,11 @@
+"use client";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 export function useSettings() {
+    const uiText = useUiText();
+
     const [isLoadingSettings, setIsLoadingSettings] = useState(true);
     const [isSavingSettings, setIsSavingSettings] = useState(false);
     const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);

@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getApiErrorMessage } from "@/lib/api-errors";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 type ApiKey = {
@@ -29,12 +29,13 @@ type ApiKey = {
     createdAt: string;
 };
 
-function formatDate(value: string | null): string {
-    if (!value) return uiText("Never");
-    return new Date(value).toLocaleString("zh-CN");
-}
-
 export function ApiKeysSection() {
+    const uiText = useUiText();
+    function formatDate(value: string | null): string {
+        if (!value) return uiText("Never");
+        return new Date(value).toLocaleString(uiText.locale);
+    }
+
     const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
@@ -51,6 +52,7 @@ export function ApiKeysSection() {
                     await getApiErrorMessage(
                         response,
                         "Failed to fetch API keys",
+                        uiText.locale,
                     ),
                 );
             }
@@ -61,7 +63,7 @@ export function ApiKeysSection() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [uiText]);
 
     useEffect(() => {
         refreshApiKeys();
@@ -89,6 +91,7 @@ export function ApiKeysSection() {
                     await getApiErrorMessage(
                         response,
                         "Failed to create API key",
+                        uiText.locale,
                     ),
                 );
             }
@@ -111,6 +114,8 @@ export function ApiKeysSection() {
                     error instanceof Error
                         ? error.message
                         : uiText("Failed to create API key"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         } finally {
@@ -128,6 +133,7 @@ export function ApiKeysSection() {
                     await getApiErrorMessage(
                         response,
                         "Failed to revoke API key",
+                        uiText.locale,
                     ),
                 );
             }
@@ -139,6 +145,8 @@ export function ApiKeysSection() {
                     error instanceof Error
                         ? error.message
                         : uiText("Failed to revoke API key"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         }

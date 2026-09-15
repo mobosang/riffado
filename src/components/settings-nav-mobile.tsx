@@ -9,7 +9,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import type { SettingsSection } from "@/types/settings";
 
 interface Props {
@@ -28,9 +28,11 @@ export function SettingsNavMobile({
     onSectionChange,
     isHosted,
 }: Props) {
+    const uiText = useUiText();
+
     const settingsNav = useMemo(
-        () => buildSettingsNav({ isHosted }),
-        [isHosted],
+        () => buildSettingsNav({ isHosted, locale: uiText.locale }),
+        [isHosted, uiText],
     );
     const activeNavItem = settingsNav.find((item) => item.id === activeSection);
 

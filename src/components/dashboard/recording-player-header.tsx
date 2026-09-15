@@ -7,7 +7,7 @@ import { CardAction, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBytes } from "@/lib/format-bytes";
 import { formatDateTime } from "@/lib/format-date";
 import { formatDuration } from "@/lib/format-duration";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import type { Recording } from "@/types/recording";
 
 interface Props {
@@ -38,8 +38,10 @@ export function RecordingPlayerHeader({
     onDecodeWaveform,
     onRenamed,
 }: Props) {
+    const uiText = useUiText();
+
     const metaParts: string[] = [
-        formatDateTime(recording.startTime, "relative"),
+        formatDateTime(recording.startTime, "relative", uiText.locale),
         formatDuration(duration || recording.duration / 1000),
         formatBytes(recording.filesize),
     ];

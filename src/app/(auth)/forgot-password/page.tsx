@@ -5,10 +5,12 @@ import {
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
 import { redirectIfAuthenticated } from "@/lib/auth-server";
 import { env } from "@/lib/env";
-import { uiText } from "@/lib/i18n";
+import { getUiText } from "@/lib/i18n/server";
 import { isSmtpConfigured } from "@/lib/smtp";
 
 export default async function ForgotPasswordPage() {
+    const uiText = await getUiText();
+
     await redirectIfAuthenticated();
 
     const smtp = isSmtpConfigured();

@@ -15,26 +15,26 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useSettings } from "@/hooks/use-settings";
-import { uiText } from "@/lib/i18n";
-
-const syncIntervalPresets = [
-    { label: uiText("1 minute"), value: 60 * 1000 },
-    { label: uiText("2 minutes"), value: 2 * 60 * 1000 },
-    { label: uiText("5 minutes"), value: 5 * 60 * 1000 },
-    { label: uiText("10 minutes"), value: 10 * 60 * 1000 },
-    { label: uiText("15 minutes"), value: 15 * 60 * 1000 },
-    { label: uiText("30 minutes"), value: 30 * 60 * 1000 },
-    { label: uiText("1 hour"), value: 60 * 60 * 1000 },
-];
-
-const getSyncIntervalLabel = (value: number) => {
-    return (
-        syncIntervalPresets.find((p) => p.value === value)?.label ||
-        uiText("Custom")
-    );
-};
+import { useUiText } from "@/lib/i18n/client";
 
 export function SyncSection() {
+    const uiText = useUiText();
+    const syncIntervalPresets = [
+        { label: uiText("1 minute"), value: 60 * 1000 },
+        { label: uiText("2 minutes"), value: 2 * 60 * 1000 },
+        { label: uiText("5 minutes"), value: 5 * 60 * 1000 },
+        { label: uiText("10 minutes"), value: 10 * 60 * 1000 },
+        { label: uiText("15 minutes"), value: 15 * 60 * 1000 },
+        { label: uiText("30 minutes"), value: 30 * 60 * 1000 },
+        { label: uiText("1 hour"), value: 60 * 60 * 1000 },
+    ];
+    const getSyncIntervalLabel = (value: number) => {
+        return (
+            syncIntervalPresets.find((p) => p.value === value)?.label ||
+            uiText("Custom")
+        );
+    };
+
     const { isLoadingSettings, isSavingSettings, setIsLoadingSettings } =
         useSettings();
     const [syncInterval, setSyncInterval] = useState(300000);

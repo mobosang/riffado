@@ -5,7 +5,7 @@ import { Logo } from "@/components/icons/logo";
 import { ReportBugButton } from "@/components/report-bug-dialog";
 import { UpdateBadge } from "@/components/update-badge";
 import { env } from "@/lib/env";
-import { uiText } from "@/lib/i18n";
+import { getUiText } from "@/lib/i18n/server";
 import { APP_RELEASE_URL, APP_VERSION_TAG } from "@/lib/version";
 
 /**
@@ -27,7 +27,9 @@ import { APP_RELEASE_URL, APP_VERSION_TAG } from "@/lib/version";
  * gets a support link, self-host gets the update badge. Neither side
  * sees both. PR #124 already dropped the original `"use client"`.
  */
-export function Footer() {
+export async function Footer() {
+    const uiText = await getUiText();
+
     const currentYear = new Date().getFullYear();
 
     return (

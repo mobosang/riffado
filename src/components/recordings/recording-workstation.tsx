@@ -22,7 +22,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 import type { Recording } from "@/types/recording";
 
@@ -59,6 +59,8 @@ export function RecordingWorkstation({
     initialAutoPlayNext,
     scrubberStyle,
 }: RecordingWorkstationProps) {
+    const uiText = useUiText();
+
     const { push, refresh } = useRouter();
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -104,6 +106,7 @@ export function RecordingWorkstation({
                     uiError(
                         error.error || uiText("Transcription failed"),
                         error.code,
+                        uiText.locale,
                     ),
                 );
             }
@@ -112,7 +115,7 @@ export function RecordingWorkstation({
         } finally {
             setIsTranscribing(false);
         }
-    }, [recording.id, refresh]);
+    }, [uiText, recording.id, refresh]);
 
     const handleDelete = useCallback(async () => {
         setIsDeleting(true);
@@ -132,6 +135,7 @@ export function RecordingWorkstation({
                     uiError(
                         error.error || uiText("Failed to delete recording"),
                         error.code,
+                        uiText.locale,
                     ),
                 );
                 setIsDeleting(false);
@@ -140,7 +144,7 @@ export function RecordingWorkstation({
             toast.error(uiText("Failed to delete recording"));
             setIsDeleting(false);
         }
-    }, [recording.id, refresh, push]);
+    }, [uiText, recording.id, refresh, push]);
 
     return (
         <div className="bg-background">

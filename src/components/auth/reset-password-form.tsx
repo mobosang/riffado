@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { resetPasswordMode } from "@/lib/auth/reset-password-mode";
 import { resetPassword } from "@/lib/auth-client";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 interface ResetPasswordFormProps {
@@ -31,6 +31,8 @@ interface ResetPasswordFormProps {
  * title/subtitle.
  */
 export function ResetPasswordForm({ token, error }: ResetPasswordFormProps) {
+    const uiText = useUiText();
+
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -99,6 +101,7 @@ export function ResetPasswordForm({ token, error }: ResetPasswordFormProps) {
                                 "Could not reset password. The link may have expired.",
                             ),
                         result.error.code,
+                        uiText.locale,
                     ),
                 );
                 return;
@@ -114,7 +117,7 @@ export function ResetPasswordForm({ token, error }: ResetPasswordFormProps) {
                     : uiText(
                           "Could not reset password. The link may have expired.",
                       );
-            toast.error(uiError(message));
+            toast.error(uiError(message, undefined, uiText.locale));
         } finally {
             setIsLoading(false);
         }

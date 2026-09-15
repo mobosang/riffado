@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UI_LOCALE } from "@/lib/i18n";
+import { useUiLocale } from "@/lib/i18n/client";
 
 interface Props {
     /** Date object or anything `new Date(...)` accepts (ISO string, ms). */
@@ -27,6 +27,7 @@ interface Props {
  * deliberately and visibly only after we know the client locale.
  */
 export function LocalTime({ value, variant = "datetime", className }: Props) {
+    const { locale } = useUiLocale();
     const date = value instanceof Date ? value : new Date(value);
     const iso = date.toISOString();
     const [text, setText] = useState<string>(iso);
@@ -34,10 +35,10 @@ export function LocalTime({ value, variant = "datetime", className }: Props) {
     useEffect(() => {
         setText(
             variant === "date"
-                ? date.toLocaleDateString(UI_LOCALE)
-                : date.toLocaleString(UI_LOCALE),
+                ? date.toLocaleDateString(locale)
+                : date.toLocaleString(locale),
         );
-    }, [date, variant]);
+    }, [date, variant, locale]);
 
     return (
         <time dateTime={iso} className={className}>

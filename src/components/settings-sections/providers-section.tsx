@@ -9,7 +9,7 @@ import { EditProviderDialog } from "@/components/settings/edit-provider-dialog";
 import { SettingsSectionHeader } from "@/components/settings/section-header";
 import { PromptManager } from "@/components/settings-sections/prompt-manager";
 import { Button } from "@/components/ui/button";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 type AISubSection = "providers" | "prompts";
@@ -53,6 +53,8 @@ export function ProvidersSection({
     initialProviders = EMPTY_PROVIDERS,
     isHosted = false,
 }: ProvidersSectionProps) {
+    const uiText = useUiText();
+
     const confirm = useConfirm();
     const [providers, setProviders] = useState<Provider[]>(initialProviders);
     const [isAddProviderOpen, setIsAddProviderOpen] = useState(false);
@@ -104,6 +106,8 @@ export function ProvidersSection({
                         e instanceof Error
                             ? e.message
                             : uiText("Failed to update default"),
+                        undefined,
+                        uiText.locale,
                     ),
                 );
             }
@@ -234,13 +238,6 @@ export function ProvidersSection({
     );
 }
 
-function formatIncludedSeconds(seconds: number | undefined): string {
-    if (!seconds) return uiText("Included with your subscription");
-    return uiText("Up to {hours}h of transcription per month", {
-        hours: Math.round(seconds / 3600),
-    });
-}
-
 /**
  * Configured-providers list with edit/delete row actions. Pure
  * presentation -- the parent owns the data + dialog state.
@@ -260,6 +257,14 @@ function ProvidersList({
     onDelete: (id: string) => void;
     onSetDefault: (id: string) => void;
 }) {
+    const uiText = useUiText();
+    function formatIncludedSeconds(seconds: number | undefined): string {
+        if (!seconds) return uiText("Included with your subscription");
+        return uiText("Up to {hours}h of transcription per month", {
+            hours: Math.round(seconds / 3600),
+        });
+    }
+
     if (providers.length === 0) {
         return (
             <div className="text-center py-12">

@@ -12,7 +12,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import {
     buildReportBugBodyPreview,
     buildReportBugMailto,
@@ -47,6 +47,8 @@ export function ReportBugDialog({
     open,
     onOpenChange,
 }: ReportBugDialogProps) {
+    const uiText = useUiText();
+
     const page =
         typeof window !== "undefined" ? window.location.pathname : undefined;
     const opts = { isHosted, errorId, errorContext, page };
@@ -128,6 +130,8 @@ const RESET_BUTTON_CLASSES =
     "appearance-none border-0 bg-transparent p-0 m-0 font-inherit text-inherit cursor-pointer";
 
 export function ReportBugButton({ isHosted, className }: ReportBugButtonProps) {
+    const uiText = useUiText();
+
     const [open, setOpen] = useState(false);
 
     return (

@@ -1,7 +1,7 @@
 /**
  * Browser notification utilities
  */
-import { uiText } from "@/lib/i18n";
+import { createUiText, type UiLocale } from "@/lib/i18n";
 
 export async function requestNotificationPermission(): Promise<boolean> {
     if (!("Notification" in window)) {
@@ -37,7 +37,11 @@ export function showBrowserNotification(
     }
 }
 
-export function showNewRecordingNotification(count: number): void {
+export function showNewRecordingNotification(
+    count: number,
+    locale: UiLocale = "en",
+): void {
+    const uiText = createUiText(locale);
     const title = uiText("Synced {count} new recordings", { count });
 
     showBrowserNotification(title, {
@@ -49,7 +53,8 @@ export function showNewRecordingNotification(count: number): void {
     });
 }
 
-export function showSyncCompleteNotification(): void {
+export function showSyncCompleteNotification(locale: UiLocale = "en"): void {
+    const uiText = createUiText(locale);
     showBrowserNotification(uiText("Sync complete"), {
         body: uiText("Your recordings have been synced successfully"),
         tag: "sync-complete",

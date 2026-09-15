@@ -71,18 +71,33 @@
         "https://example.com/webhook": "Technical identifier, brand, shortcut, or literal configuration example; preserve verbatim."
     },
     "src/components/settings-sections/notifications-section.tsx": {
+        "your@email.com": "Literal example email address; preserve verbatim.",
         "https://api.day.app/your_key": "Technical identifier, brand, shortcut, or literal configuration example; preserve verbatim."
     },
     "src/components/settings-sections/prompt-manager.tsx": {
-        "{transcription}": "Technical identifier, brand, shortcut, or literal configuration example; preserve verbatim."
+        "{transcription}": "Technical identifier, brand, shortcut, or literal configuration example; preserve verbatim.",
+        "You are a title generator for audio recordings. Generate a concise, descriptive title based on the transcription provided.\n\nRULES (MUST FOLLOW):\n1. Maximum 60 characters (strict limit)\n2. No quotes, colons, semicolons, or special punctuation marks\n3. Use title case (capitalize important words)\n4. Focus on the main topic, subject, or action discussed\n5. Remove filler words, greetings, and conversational fluff\n6. Be specific and descriptive, not generic\n7. If the transcription is very short or unclear, create a meaningful title based on context\n8. Do not include timestamps, dates, or metadata\n9. Do not use phrases like \"Recording about\" or \"Discussion of\"\n10. Return ONLY the title text, nothing else\n\nTranscription:\n{transcription}\n\nGenerate the title now:": "Original AI prompt example; preserve instructions, output keys, and transcription placeholder verbatim."
     },
     "src/components/settings-sections/summary-section.tsx": {
         "{transcription}": "Technical identifier, brand, shortcut, or literal configuration example; preserve verbatim.",
         "summary": "Technical identifier, brand, shortcut, or literal configuration example; preserve verbatim.",
         "keyPoints": "Technical identifier, brand, shortcut, or literal configuration example; preserve verbatim.",
-        "actionItems": "Technical identifier, brand, shortcut, or literal configuration example; preserve verbatim."
+        "actionItems": "Technical identifier, brand, shortcut, or literal configuration example; preserve verbatim.",
+        "Detect the type of recording (meeting, lecture, personal note, interview) and summarize it accordingly.\n\nRespond in the following JSON format (no markdown, no code fences):\n{\n  \"summary\": \"A concise paragraph summarizing the transcription\",\n  \"keyPoints\": [\"key point 1\", \"key point 2\"],\n  \"actionItems\": [\"action item 1\", \"action item 2\"]\n}\n\nIf there are no key points or action items, return empty arrays.\n\nTranscription:\n{transcription}": "Original AI prompt example; preserve instructions, output keys, and transcription placeholder verbatim."
     },
     "src/components/settings-sections/transcription-section.tsx": {
         "Plaud": "Technical identifier, brand, shortcut, or literal configuration example; preserve verbatim."
+    },
+    "src/components/language-select.tsx": {
+        "English": "Autonym: language names remain readable in either selected language."
+    },
+    "src/components/settings-sections/export-section.tsx": {
+        "JSON": "File format identifier."
+    },
+    "src/components/settings-sections/playback-section.tsx": {
+        "1x": "Playback speed notation."
+    },
+    "src/components/settings-sections/storage-section.tsx": {
+        "local": "Storage backend identifier, matching the configured storageType."
     }
 }

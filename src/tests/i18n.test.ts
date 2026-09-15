@@ -2,17 +2,33 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PROMPT_PRESETS } from "@/lib/ai/prompt-presets";
 import { AI_OUTPUT_LANGUAGES, SUMMARY_PRESETS } from "@/lib/ai/summary-presets";
 import { dateGroupLabel, formatDateTime } from "@/lib/format-date";
-import { uiText } from "@/lib/i18n";
-import { uiError } from "@/lib/i18n/errors";
 import {
-    UI_OUTPUT_LANGUAGES,
-    UI_SUMMARY_PRESETS,
-    UI_TITLE_PRESETS,
-} from "@/lib/i18n/presets";
+    createUiText,
+    uiText as defaultUiText,
+    normalizeUiLocale,
+} from "@/lib/i18n";
+import { uiError } from "@/lib/i18n/errors";
+import { getUiPresets } from "@/lib/i18n/presets";
+
+const uiText = createUiText("zh-CN");
+const { UI_OUTPUT_LANGUAGES, UI_SUMMARY_PRESETS, UI_TITLE_PRESETS } =
+    getUiPresets("zh-CN");
 
 afterEach(() => vi.useRealTimers());
 
 describe("Chinese UI localization", () => {
+    it("defaults to English and isolates simultaneous language bindings", () => {
+        expect(defaultUiText("Settings")).toBe("Settings");
+        expect(normalizeUiLocale(undefined)).toBe("en");
+        expect(normalizeUiLocale("fr")).toBe("en");
+        expect(normalizeUiLocale("zh-CN")).toBe("zh-CN");
+        const english = createUiText("en");
+        expect(uiText("Settings")).toBe("设置");
+        expect(english("Settings")).toBe("Settings");
+        expect(getUiPresets("en").UI_TITLE_PRESETS.default.name).toBe(
+            "Default",
+        );
+    });
     it("falls back safely for upstream additions and prototype property names", () => {
         expect(uiText("Untranslated upstream label")).toBe(
             "Untranslated upstream label",
@@ -53,11 +69,14 @@ describe("Chinese UI localization", () => {
     });
 
     it("localizes known errors and retains unknown diagnostics", () => {
-        expect(uiError("Unknown upstream details", "PLAUD_OTP_INVALID")).toBe(
-            uiText("The verification code is invalid. Please try again."),
-        );
+        expect(
+            uiError("Unknown upstream details", "PLAUD_OTP_INVALID", "zh-CN"),
+        ).toBe(uiText("The verification code is invalid. Please try again."));
         expect(uiError("Custom provider: E42", "UNKNOWN_ERROR")).toBe(
             "Custom provider: E42",
+        );
+        expect(uiError("Invalid code", "PLAUD_OTP_INVALID", "en")).toBe(
+            "Invalid code",
         );
     });
 
@@ -65,11 +84,12 @@ describe("Chinese UI localization", () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date(2026, 8, 15, 12));
         const now = new Date();
-        expect(dateGroupLabel(now)).toBe("今天");
-        expect(dateGroupLabel(new Date(2026, 8, 14, 12))).toBe("昨天");
-        expect(formatDateTime(new Date(2026, 8, 15, 11), "relative")).toContain(
-            "小时",
-        );
+        expect(dateGroupLabel(now, "zh-CN")).toBe("今天");
+        expect(dateGroupLabel(now)).toBe("Today");
+        expect(dateGroupLabel(new Date(2026, 8, 14, 12), "zh-CN")).toBe("昨天");
+        expect(
+            formatDateTime(new Date(2026, 8, 15, 11), "relative", "zh-CN"),
+        ).toContain("小时");
         expect(formatDateTime(now, "iso")).toBe(now.toISOString());
     });
 });

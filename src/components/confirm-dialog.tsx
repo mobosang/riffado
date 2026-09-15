@@ -19,7 +19,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +90,8 @@ interface ActiveConfirm extends ConfirmOptions {
 }
 
 export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
+    const uiText = useUiText();
+
     const [active, setActive] = useState<ActiveConfirm | null>(null);
     const [isRunning, setIsRunning] = useState(false);
     // Ref guard so the imperative `confirm()` can reject re-entrancy
@@ -134,6 +136,8 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
                         (err instanceof Error
                             ? err.message
                             : uiText("Action failed")),
+                    undefined,
+                    uiText.locale,
                 ),
             );
             // Stay open so the user can retry or cancel; just leave

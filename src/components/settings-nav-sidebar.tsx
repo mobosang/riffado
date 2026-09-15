@@ -15,7 +15,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import type { SettingsSection } from "@/types/settings";
 
 interface Props {
@@ -37,13 +37,15 @@ export function SettingsNavSidebar({
     onSectionChange,
     isHosted,
 }: Props) {
+    const uiText = useUiText();
+
     const settingsNavGroups = useMemo(
-        () => buildSettingsNavGroups({ isHosted }),
-        [isHosted],
+        () => buildSettingsNavGroups({ isHosted, locale: uiText.locale }),
+        [isHosted, uiText],
     );
     const settingsNav = useMemo(
-        () => buildSettingsNav({ isHosted }),
-        [isHosted],
+        () => buildSettingsNav({ isHosted, locale: uiText.locale }),
+        [isHosted, uiText],
     );
     return (
         // Sidebar needs an explicit height to match <main>'s h-[600px],

@@ -16,7 +16,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { getApiErrorMessage } from "@/lib/api-errors";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 import { PLAUD_SERVERS, type PlaudServerKey } from "@/lib/plaud/servers";
 
@@ -35,18 +35,6 @@ interface ConnectionInfo {
  * apiBase for "custom" entries (custom-server users want to see exactly
  * which host they're talking to).
  */
-function regionLabel(
-    server: PlaudServerKey | undefined,
-    apiBase?: string,
-): string {
-    if (!server) return uiText("Unknown");
-    if (server === "custom")
-        return apiBase ?? uiText(PLAUD_SERVERS.custom.label);
-    if (server === "global") return uiText("Global");
-    if (server === "eu") return uiText("EU (Frankfurt)");
-    if (server === "apse1") return uiText("Asia Pacific (Singapore)");
-    return server;
-}
 
 interface PlaudAccountSectionProps {
     /**
@@ -63,6 +51,20 @@ interface PlaudAccountSectionProps {
 export function PlaudAccountSection({
     onReconnected,
 }: PlaudAccountSectionProps = {}) {
+    const uiText = useUiText();
+    function regionLabel(
+        server: PlaudServerKey | undefined,
+        apiBase?: string,
+    ): string {
+        if (!server) return uiText("Unknown");
+        if (server === "custom")
+            return apiBase ?? uiText(PLAUD_SERVERS.custom.label);
+        if (server === "global") return uiText("Global");
+        if (server === "eu") return uiText("EU (Frankfurt)");
+        if (server === "apse1") return uiText("Asia Pacific (Singapore)");
+        return server;
+    }
+
     const [info, setInfo] = useState<ConnectionInfo | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [confirmOpen, setConfirmOpen] = useState<
@@ -77,7 +79,11 @@ export function PlaudAccountSection({
             const res = await fetch("/api/plaud/connection");
             if (!res.ok) {
                 throw new Error(
-                    await getApiErrorMessage(res, "Failed to load connection"),
+                    await getApiErrorMessage(
+                        res,
+                        "Failed to load connection",
+                        uiText.locale,
+                    ),
                 );
             }
             const data: ConnectionInfo = await res.json();
@@ -88,7 +94,7 @@ export function PlaudAccountSection({
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [uiText]);
 
     useEffect(() => {
         fetchConnection();
@@ -100,11 +106,12 @@ export function PlaudAccountSection({
             const msg = await getApiErrorMessage(
                 res,
                 uiText("Failed to disconnect"),
+                uiText.locale,
             );
             throw new Error(msg);
         }
         return true;
-    }, []);
+    }, [uiText]);
 
     const handleDisconnect = async () => {
         setIsMutating(true);
@@ -119,6 +126,8 @@ export function PlaudAccountSection({
                     error instanceof Error
                         ? error.message
                         : uiText("Failed to disconnect"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         } finally {
@@ -148,6 +157,8 @@ export function PlaudAccountSection({
                     error instanceof Error
                         ? error.message
                         : uiText("Failed to unlink current account"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         } finally {

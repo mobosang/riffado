@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useSettings } from "@/hooks/use-settings";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 interface StorageSectionProps {
     isHosted?: boolean;
@@ -35,6 +35,8 @@ interface StorageUsage {
 }
 
 export function StorageSection({ isHosted = false }: StorageSectionProps) {
+    const uiText = useUiText();
+
     const { isLoadingSettings, isSavingSettings, setIsLoadingSettings } =
         useSettings();
     const [autoDeleteRecordings, setAutoDeleteRecordings] = useState(false);

@@ -17,7 +17,7 @@ import {
 import type { ReactNode } from "react";
 import { type DateTimeFormat, formatDateTime } from "@/lib/format-date";
 import { formatDurationMs } from "@/lib/format-duration";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import type { Recording } from "@/types/recording";
 
 export const RECORDING_CAP = 200;
@@ -95,6 +95,8 @@ export function RecordingsGroup({
     onTranscribeRecording: (id: string) => void;
     runAction: (fn: () => void) => () => void;
 }) {
+    const uiText = useUiText();
+
     if (recordings.length === 0) return null;
     const overflowCount = Math.max(0, recordings.length - RECORDING_CAP);
 
@@ -134,7 +136,11 @@ export function RecordingsGroup({
 
                 const durationText =
                     r.duration != null ? formatDurationMs(r.duration) : null;
-                const timeText = formatDateTime(r.startTime, dateTimeFormat);
+                const timeText = formatDateTime(
+                    r.startTime,
+                    dateTimeFormat,
+                    uiText.locale,
+                );
                 const subtitle: ReactNode = snippet
                     ? snippet
                     : durationText
@@ -231,6 +237,8 @@ export function ActionsGroup({
     onOpenShortcuts: () => void;
     runAction: (fn: () => void) => () => void;
 }) {
+    const uiText = useUiText();
+
     return (
         <Command.Group heading={uiText("Actions")}>
             <Command.Item onSelect={runAction(onSync)}>
@@ -274,6 +282,8 @@ export function ThemeGroup({
     onSetTheme: (t: "light" | "dark" | "system") => void;
     runAction: (fn: () => void) => () => void;
 }) {
+    const uiText = useUiText();
+
     return (
         <Command.Group heading={uiText("Theme")}>
             <Command.Item onSelect={runAction(() => onSetTheme("light"))}>
@@ -318,6 +328,8 @@ export function PaletteFooter({
 }: {
     showTranscribeHint: boolean;
 }) {
+    const uiText = useUiText();
+
     return (
         <div className="cmd-footer">
             <div className="cmd-footer-group">

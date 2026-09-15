@@ -3,7 +3,7 @@
 import { Mic, RefreshCw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 interface Props {
     isSyncing: boolean;
@@ -17,6 +17,8 @@ interface Props {
  * (the common case) or upload an audio file from disk.
  */
 export function WorkstationEmptyState({ isSyncing, onSync, onUpload }: Props) {
+    const uiText = useUiText();
+
     return (
         <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">

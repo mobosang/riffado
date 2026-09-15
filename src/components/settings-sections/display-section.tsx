@@ -3,6 +3,7 @@
 import { Monitor } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { LanguageSelect } from "@/components/language-select";
 import { SettingsSectionHeader } from "@/components/settings/section-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,43 +15,42 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useSettings } from "@/hooks/use-settings";
-import { uiText } from "@/lib/i18n";
-
-const dateTimeFormatOptions = [
-    {
-        label: uiText("Relative"),
-        value: "relative",
-        description: uiText("e.g., 2 hours ago"),
-    },
-    {
-        label: uiText("Absolute"),
-        value: "absolute",
-        description: uiText("e.g., Jan 15, 2024 3:45 PM"),
-    },
-    {
-        label: "ISO",
-        value: "iso",
-        description: uiText("e.g., 2024-01-15T15:45:00Z"),
-    },
-];
-
-const sortOrderOptions = [
-    { label: uiText("Newest first"), value: "newest" },
-    { label: uiText("Oldest first"), value: "oldest" },
-    { label: uiText("By name"), value: "name" },
-];
-
-const themeOptions = [
-    { label: uiText("Light"), value: "light" },
-    { label: uiText("Dark"), value: "dark" },
-    {
-        label: uiText("System"),
-        value: "system",
-        description: uiText("Follow system preference"),
-    },
-];
+import { useUiText } from "@/lib/i18n/client";
 
 export function DisplaySection() {
+    const uiText = useUiText();
+    const dateTimeFormatOptions = [
+        {
+            label: uiText("Relative"),
+            value: "relative",
+            description: uiText("e.g., 2 hours ago"),
+        },
+        {
+            label: uiText("Absolute"),
+            value: "absolute",
+            description: uiText("e.g., Jan 15, 2024 3:45 PM"),
+        },
+        {
+            label: "ISO",
+            value: "iso",
+            description: uiText("e.g., 2024-01-15T15:45:00Z"),
+        },
+    ];
+    const sortOrderOptions = [
+        { label: uiText("Newest first"), value: "newest" },
+        { label: uiText("Oldest first"), value: "oldest" },
+        { label: uiText("By name"), value: "name" },
+    ];
+    const themeOptions = [
+        { label: uiText("Light"), value: "light" },
+        { label: uiText("Dark"), value: "dark" },
+        {
+            label: uiText("System"),
+            value: "system",
+            description: uiText("Follow system preference"),
+        },
+    ];
+
     const { isLoadingSettings, isSavingSettings, setIsLoadingSettings } =
         useSettings();
     const [dateTimeFormat, setDateTimeFormat] = useState("relative");
@@ -181,6 +181,7 @@ export function DisplaySection() {
                 icon={Monitor}
             />
             <div className="space-y-4">
+                <LanguageSelect />
                 <div className="space-y-2">
                     <Label htmlFor="date-time-format">
                         {uiText("Date/time format")}

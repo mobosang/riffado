@@ -9,7 +9,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 interface Props {
     isAdmin: boolean;
@@ -66,6 +66,8 @@ export function WorkstationHeader({
     onOpenSettings,
     onOpenShortcuts,
 }: Props) {
+    const uiText = useUiText();
+
     return (
         <div className="sticky top-0 z-30 -mx-4 mb-6 flex items-center gap-3 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/70">
             <div className="flex min-w-0 items-baseline gap-3">

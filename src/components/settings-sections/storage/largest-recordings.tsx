@@ -4,7 +4,7 @@ import Link from "next/link";
 import { BREAKDOWN_COLORS } from "@/components/settings-sections/storage/breakdown-bar";
 import { formatBytes } from "@/lib/format-bytes";
 import { formatDurationMs } from "@/lib/format-duration";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 interface LargestRecordingsProps {
     items: {
@@ -24,6 +24,8 @@ interface LargestRecordingsProps {
  * cleanup small and reversible (preview before delete).
  */
 export function LargestRecordings({ items }: LargestRecordingsProps) {
+    const uiText = useUiText();
+
     if (items.length === 0) return null;
 
     return (

@@ -1,4 +1,4 @@
-import { uiText } from "@/lib/i18n";
+import { createUiText, type UiLocale } from "@/lib/i18n";
 /**
  * Shared types for the webhooks settings UI.
  *
@@ -40,7 +40,11 @@ export const DEFAULT_WEBHOOK_EVENTS = [
     "summary.failed",
 ];
 
-export function formatWebhookDate(value: string | null): string {
+export function formatWebhookDate(
+    value: string | null,
+    locale: UiLocale = "en",
+): string {
+    const uiText = createUiText(locale);
     if (!value) return uiText("Never");
-    return new Date(value).toLocaleString("zh-CN");
+    return new Date(value).toLocaleString(locale);
 }

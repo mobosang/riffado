@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import {
     formatWebhookDate,
     type WebhookDelivery,
@@ -25,6 +25,8 @@ interface Props {
  * another never flashes the wrong endpoint's history.
  */
 export function WebhookDeliveriesDialog({ webhook, onClose }: Props) {
+    const uiText = useUiText();
+
     const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
 
     const webhookId = webhook?.id ?? null;
@@ -43,7 +45,7 @@ export function WebhookDeliveriesDialog({ webhook, onClose }: Props) {
         } catch {
             toast.error(uiText("Failed to load deliveries"));
         }
-    }, [webhookId]);
+    }, [uiText, webhookId]);
 
     useEffect(() => {
         if (!webhookId) {
@@ -110,6 +112,7 @@ export function WebhookDeliveriesDialog({ webhook, onClose }: Props) {
                                         {delivery.attempts} {uiText("· Last:")}{" "}
                                         {formatWebhookDate(
                                             delivery.lastAttemptAt,
+                                            uiText.locale,
                                         )}
                                     </p>
                                     {delivery.lastError && (

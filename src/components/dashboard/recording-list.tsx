@@ -22,7 +22,7 @@ import {
 import { RecordingRow } from "@/components/dashboard/recording-row";
 import { Card, CardContent } from "@/components/ui/card";
 import { dateGroupLabel } from "@/lib/format-date";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import type { DateTimeFormat } from "@/types/common";
 import type { Recording } from "@/types/recording";
 
@@ -94,6 +94,8 @@ export function RecordingList({
     initialChunkSize,
     ref,
 }: RecordingListProps & { ref?: React.Ref<RecordingListHandle> }) {
+    const uiText = useUiText();
+
     const [dateTimeFormat] = useState<DateTimeFormat>(initialDateTimeFormat);
     const [sortOrder, setSortOrder] = useState<SortOrder>(initialSortOrder);
     const [density, setDensity] = useState<ListDensity>(initialDensity);
@@ -162,7 +164,7 @@ export function RecordingList({
         }
         const groups: { label: string; items: Recording[] }[] = [];
         for (const r of visible) {
-            const label = dateGroupLabel(r.startTime);
+            const label = dateGroupLabel(r.startTime, uiText.locale);
             const last = groups[groups.length - 1];
             if (last && last.label === label) {
                 last.items.push(r);
@@ -171,7 +173,7 @@ export function RecordingList({
             }
         }
         return groups;
-    }, [visible, sortOrder]);
+    }, [uiText, visible, sortOrder]);
 
     // Reset visibleCount when the filter changes so search results
     // aren't accidentally truncated.

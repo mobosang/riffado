@@ -14,7 +14,7 @@ import {
 } from "@/components/dashboard/command-palette-parts";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { DateTimeFormat } from "@/lib/format-date";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import type { Recording } from "@/types/recording";
 import "@/components/dashboard/command-palette.css";
 
@@ -58,6 +58,8 @@ export function CommandPalette({
     onSetTheme,
     onTranscribeRecording,
 }: CommandPaletteProps) {
+    const uiText = useUiText();
+
     // Wrap action handlers so the palette closes first, then the
     // action runs on the next tick. Without the defer, dialogs the
     // action opens (settings, shortcuts) race the palette's own

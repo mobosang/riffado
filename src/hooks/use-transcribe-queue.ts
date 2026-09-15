@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 type ActionKind = "transcribing" | "summarizing";
@@ -25,6 +25,8 @@ interface Options {
  * same map without duplicating the Map-update plumbing.
  */
 export function useTranscribeQueue({ onTranscribeComplete }: Options) {
+    const uiText = useUiText();
+
     const [inFlightActions, setInFlightActions] = useState<
         Map<string, ActionKind>
     >(new Map());
@@ -64,6 +66,7 @@ export function useTranscribeQueue({ onTranscribeComplete }: Options) {
                         uiError(
                             error.error || uiText("Transcription failed"),
                             error.code,
+                            uiText.locale,
                         ),
                     );
                 }
@@ -77,7 +80,7 @@ export function useTranscribeQueue({ onTranscribeComplete }: Options) {
                 markAction(id, null);
             }
         },
-        [markAction, onTranscribeComplete],
+        [uiText, markAction, onTranscribeComplete],
     );
 
     return {

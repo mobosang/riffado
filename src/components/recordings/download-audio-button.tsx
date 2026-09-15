@@ -7,10 +7,12 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { recordingAudioDownloadPath } from "@/lib/recordings/filename";
 
 export function DownloadAudioButton({ recordingId }: { recordingId: string }) {
+    const uiText = useUiText();
+
     return (
         <Tooltip>
             <TooltipTrigger asChild>

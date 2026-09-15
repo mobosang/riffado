@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useConfirm } from "@/components/confirm-dialog";
 import { SettingsSectionHeader } from "@/components/settings/section-header";
 import { Button } from "@/components/ui/button";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { WebhookDeliveriesDialog } from "./webhook-deliveries-dialog";
 import { WebhookEditorDialog } from "./webhook-editor-dialog";
 import {
@@ -16,6 +16,8 @@ import {
 } from "./webhook-types";
 
 export function WebhooksSection() {
+    const uiText = useUiText();
+
     const confirm = useConfirm();
     const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>([]);
     const [events, setEvents] = useState<string[]>(DEFAULT_WEBHOOK_EVENTS);
@@ -41,7 +43,7 @@ export function WebhooksSection() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [uiText]);
 
     useEffect(() => {
         refreshWebhooks();
@@ -150,6 +152,8 @@ function WebhookRow({
     onDelete: (webhookId: string) => void;
     onShowDeliveries: (webhook: WebhookEndpoint) => void;
 }) {
+    const uiText = useUiText();
+
     return (
         <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
             <div className="min-w-0 space-y-2">
@@ -189,7 +193,7 @@ function WebhookRow({
                 </div>
                 <p className="text-xs text-muted-foreground">
                     {uiText("Last delivery:")}
-                    {formatWebhookDate(webhook.lastDeliveryAt)}
+                    {formatWebhookDate(webhook.lastDeliveryAt, uiText.locale)}
                 </p>
             </div>
             <div className="flex gap-2">

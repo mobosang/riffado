@@ -4,7 +4,7 @@ import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-errors";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import {
     MAX_RECORDING_TITLE_LENGTH,
     normalizeRecordingTitle,
@@ -22,6 +22,8 @@ export function RecordingTitle({
     onRenamed?: (filename: string) => void;
     className?: string;
 }) {
+    const uiText = useUiText();
+
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(filename);
     const [saving, setSaving] = useState(false);
@@ -73,6 +75,7 @@ export function RecordingTitle({
                     await getApiErrorMessage(
                         response,
                         uiText("Failed to rename"),
+                        uiText.locale,
                     ),
                 );
                 return;

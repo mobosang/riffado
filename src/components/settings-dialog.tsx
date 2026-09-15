@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useSettingsNav } from "@/hooks/use-settings-nav";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import type { SettingsSection } from "@/types/settings";
 import { SettingsContent } from "./settings-content";
 
@@ -45,6 +45,8 @@ export function SettingsDialog({
     isHosted = false,
     onPlaudReconnected,
 }: SettingsDialogProps) {
+    const uiText = useUiText();
+
     const onClose = useCallback(() => onOpenChange(false), [onOpenChange]);
     const { activeSection, setActiveSection, keyboardSelectedIndex } =
         useSettingsNav(open, onClose, isHosted);

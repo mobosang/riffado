@@ -1,4 +1,4 @@
-import { uiText } from "@/lib/i18n";
+import { createUiText, type UiLocale } from "@/lib/i18n";
 
 const errorMessages: Readonly<Record<string, string>> = {
     UNAUTHORIZED: "Please sign in again.",
@@ -29,7 +29,13 @@ const errorMessages: Readonly<Record<string, string>> = {
 };
 
 /** Localize known errors without mutating the API payload or hiding unknown diagnostics. */
-export function uiError(message: string, code?: string): string {
+export function uiError(
+    message: string,
+    code?: string,
+    locale: UiLocale = "en",
+): string {
+    if (locale === "en") return message;
+    const uiText = createUiText(locale);
     const translated = uiText(message);
     if (translated !== message) return translated;
     return code && Object.hasOwn(errorMessages, code)

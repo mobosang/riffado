@@ -22,8 +22,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useSettings } from "@/hooks/use-settings";
-import { uiText } from "@/lib/i18n";
-import { UI_TITLE_PRESETS as PROMPT_PRESETS } from "@/lib/i18n/presets";
+import { useUiText } from "@/lib/i18n/client";
+import { getUiPresets } from "@/lib/i18n/presets";
 
 interface CustomPrompt {
     id: string;
@@ -55,6 +55,9 @@ type EditingPrompt = {
  * Persists via PUT /api/settings/user, `titleGenerationPrompt` field.
  */
 export function PromptManager() {
+    const uiText = useUiText();
+    const { UI_TITLE_PRESETS: PROMPT_PRESETS } = getUiPresets(uiText.locale);
+
     const confirm = useConfirm();
     const { isLoadingSettings, isSavingSettings, setIsLoadingSettings } =
         useSettings();

@@ -12,7 +12,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 export type SortOrder = "newest" | "oldest" | "name";
 export type ListDensity = "comfortable" | "compact";
@@ -40,6 +40,8 @@ export function RecordingListToolbar({
     density: ListDensity;
     onDensityChange: (next: ListDensity) => void;
 }) {
+    const uiText = useUiText();
+
     return (
         <div className="flex flex-col gap-2 border-b p-3">
             <div className="relative">

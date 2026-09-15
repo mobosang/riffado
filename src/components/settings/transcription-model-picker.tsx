@@ -1,5 +1,5 @@
 "use client";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 /**
  * Transcription model picker shared by the Add/Edit provider dialogs.
@@ -53,6 +53,8 @@ export function TranscriptionModelPicker({
     onChange,
     disabled,
 }: Props) {
+    const uiText = useUiText();
+
     // Live fetch for `fetchAudioModels: true` presets.
     const [audioModels, setAudioModels] = useState<ModelOption[]>([]);
     const [audioModelsLoading, setAudioModelsLoading] = useState(false);
@@ -113,7 +115,7 @@ export function TranscriptionModelPicker({
             }
         }, 400);
         return () => clearTimeout(timer);
-    }, [shouldFetch, providerName, apiKey, baseUrl]);
+    }, [uiText, shouldFetch, providerName, apiKey, baseUrl]);
 
     // Resolve which option list (if any) we should render.
     const options: ModelOption[] = preset?.fetchAudioModels

@@ -4,9 +4,11 @@ import { Bot, CheckCircle2, Mic, Sparkles } from "lucide-react";
 import { PlaudConnectTabs } from "@/components/plaud-connect-tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 export function OnboardingStepWelcome() {
+    const uiText = useUiText();
+
     return (
         <div className="space-y-4">
             <div className="text-center space-y-2">
@@ -85,6 +87,8 @@ export function OnboardingStepPlaud({
     onReconnect: () => void;
     onConnected: () => void;
 }) {
+    const uiText = useUiText();
+
     return (
         <div className="space-y-4">
             <div className="text-center space-y-2">
@@ -144,6 +148,8 @@ export function OnboardingStepAiProvider({
     hasIncludedProvider: boolean;
     onGoToSettings: () => void;
 }) {
+    const uiText = useUiText();
+
     const includedOnly = hasIncludedProvider && !hasOwnProvider;
     return (
         <div className="space-y-4">
@@ -237,6 +243,8 @@ export function OnboardingStepComplete({
 }: {
     hasIncludedProvider: boolean;
 }) {
+    const uiText = useUiText();
+
     return (
         <div className="space-y-4">
             <div className="text-center space-y-2">

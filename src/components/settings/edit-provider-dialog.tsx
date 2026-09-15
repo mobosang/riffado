@@ -26,7 +26,7 @@ import {
     getVisiblePresets,
     isLocalPreset,
 } from "@/lib/ai/provider-presets";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 interface Provider {
@@ -58,6 +58,8 @@ export function EditProviderDialog({
     onSuccess,
     isHosted = false,
 }: EditProviderDialogProps) {
+    const uiText = useUiText();
+
     const visiblePresets = getVisiblePresets({ isHosted });
     // Legacy case: a hosted user has an existing LM Studio / Ollama provider
     // (added before hosted enforcement, or imported). Keep their currently
@@ -166,6 +168,8 @@ export function EditProviderDialog({
                     error instanceof Error
                         ? error.message
                         : uiText("Failed to update AI provider"),
+                    undefined,
+                    uiText.locale,
                 ),
             );
         } finally {
@@ -224,7 +228,7 @@ export function EditProviderDialog({
                                 <span>
                                     {legacyLocalProvider}{" "}
                                     {uiText(
-                                        "isn&apos;t usable on the hosted app. We can&apos;t reach your machine. Delete this provider and re-add one with a public endpoint, or self-host Riffado (",
+                                        "isn't usable on the hosted app. We can't reach your machine. Delete this provider and re-add one with a public endpoint, or self-host Riffado (",
                                     )}
                                     <code className="font-mono">
                                         docker compose up
@@ -278,7 +282,7 @@ export function EditProviderDialog({
                         />
                         {isHosted && (
                             <p className="text-xs text-muted-foreground">
-                                {uiText("We can&apos;t reach")}{" "}
+                                {uiText("We can't reach")}{" "}
                                 <code className="font-mono">localhost</code>{" "}
                                 {uiText(
                                     "or other private addresses from the hosted app. To use LM Studio or Ollama, self-host Riffado (",

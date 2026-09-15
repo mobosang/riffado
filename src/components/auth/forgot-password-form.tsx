@@ -7,7 +7,7 @@ import { MetalButton } from "@/components/metal-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requestPasswordReset } from "@/lib/auth-client";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 interface ForgotPasswordFormProps {
@@ -26,6 +26,8 @@ interface ForgotPasswordFormProps {
 export function ForgotPasswordForm({
     smtpConfigured,
 }: ForgotPasswordFormProps) {
+    const uiText = useUiText();
+
     const [email, setEmail] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -55,6 +57,7 @@ export function ForgotPasswordForm({
                                 "Too many requests. Please wait a moment and try again.",
                             ),
                         result.error.code,
+                        uiText.locale,
                     ),
                 );
                 return;
@@ -67,7 +70,7 @@ export function ForgotPasswordForm({
                 error instanceof Error
                     ? error.message
                     : uiText("Could not send reset email. Please try again.");
-            toast.error(uiError(message));
+            toast.error(uiError(message, undefined, uiText.locale));
         } finally {
             setIsLoading(false);
         }

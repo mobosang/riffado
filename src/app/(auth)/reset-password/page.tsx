@@ -6,7 +6,7 @@ import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { resetPasswordMode } from "@/lib/auth/reset-password-mode";
 import { redirectIfAuthenticated } from "@/lib/auth-server";
 import { env } from "@/lib/env";
-import { uiText } from "@/lib/i18n";
+import { getUiText } from "@/lib/i18n/server";
 
 interface ResetPasswordPageProps {
     // Next.js delivers query params as `string | string[] | undefined` --
@@ -26,6 +26,8 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 export default async function ResetPasswordPage({
     searchParams,
 }: ResetPasswordPageProps) {
+    const uiText = await getUiText();
+
     await redirectIfAuthenticated();
 
     const params = await searchParams;

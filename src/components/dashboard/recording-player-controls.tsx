@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { PLAYBACK_SPEED_OPTIONS } from "@/hooks/use-playback-engine";
 import { formatTimeLike } from "@/lib/format-duration";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 interface Props {
     isPlaying: boolean;
@@ -45,6 +45,8 @@ export function RecordingPlayerControls({
     scrubberStyle,
     waveformPeaks,
 }: Props) {
+    const uiText = useUiText();
+
     const seekDisabled = !duration || duration === 0;
     const seekRatio = duration > 0 ? currentTime / duration : 0;
     const progress = duration > 0 ? (currentTime / duration) * 100 : 0;

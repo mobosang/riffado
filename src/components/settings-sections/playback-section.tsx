@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { useSettings } from "@/hooks/use-settings";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 const playbackSpeedOptions = [
     { label: "0.5x", value: 0.5 },
@@ -28,6 +28,8 @@ const playbackSpeedOptions = [
 ];
 
 export function PlaybackSection() {
+    const uiText = useUiText();
+
     const { isLoadingSettings, isSavingSettings, setIsLoadingSettings } =
         useSettings();
     const [defaultPlaybackSpeed, setDefaultPlaybackSpeed] = useState(1.0);

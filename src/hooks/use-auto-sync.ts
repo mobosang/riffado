@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getApiErrorMessage } from "@/lib/api-errors";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 
 interface UseAutoSyncOptions {
     interval?: number;
@@ -81,6 +81,12 @@ function newSyncToken(): string {
 }
 
 export function useAutoSync(options: UseAutoSyncOptions = {}) {
+    const uiText = useUiText();
+    const uiTextRef = useRef(uiText);
+    useEffect(() => {
+        uiTextRef.current = uiText;
+    }, [uiText]);
+
     const {
         interval = 5 * 60 * 1000,
         minInterval = 60 * 1000,
@@ -121,6 +127,7 @@ export function useAutoSync(options: UseAutoSyncOptions = {}) {
 
     const performSync = useCallback(
         async (silent = true) => {
+            const uiText = uiTextRef.current;
             if (isSyncingRef.current) {
                 return;
             }
@@ -202,6 +209,7 @@ export function useAutoSync(options: UseAutoSyncOptions = {}) {
                     const errorMessage = await getApiErrorMessage(
                         response,
                         uiText("Sync failed"),
+                        uiText.locale,
                     );
 
                     setStatus((prev) => ({

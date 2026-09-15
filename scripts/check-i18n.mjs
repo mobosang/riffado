@@ -34,20 +34,53 @@ for (const file of files("src")) {
     function report(node, message) {
         problems.push(`${relative}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}: ${message}`);
     }
+    function checkText(node, source) {
+        const exceptions = allowlist[relative];
+        const allowed = exceptions && Object.hasOwn(exceptions, source) && typeof exceptions[source] === "string" && exceptions[source].trim();
+        if (source && /[A-Za-z]/.test(source) && !allowed) report(node, `Untranslated UI: ${source}`);
+    }
+    function unwrap(node) {
+        while (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node)) node = node.expression;
+        return node;
+    }
+    function checkKey(expression) {
+        const node = unwrap(expression);
+        if (ts.isStringLiteralLike(node) && !Object.hasOwn(dictionary, node.text)) report(node, `Missing dictionary key: ${node.text}`);
+        else if (ts.isTemplateExpression(node) || (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken)) report(node, "Dynamic translation key: use a static key with named placeholders");
+        else if (ts.isConditionalExpression(node)) {
+            checkKey(node.whenTrue);
+            checkKey(node.whenFalse);
+        }
+    }
+    function checkExpression(expression) {
+        const node = unwrap(expression);
+        if (ts.isStringLiteralLike(node)) checkText(node, node.text);
+        else if (ts.isTemplateExpression(node)) {
+            checkText(node.head, node.head.text);
+            for (const span of node.templateSpans) {
+                checkExpression(span.expression);
+                checkText(span.literal, span.literal.text);
+            }
+        } else if (ts.isConditionalExpression(node)) {
+            checkExpression(node.whenTrue);
+            checkExpression(node.whenFalse);
+        } else if (ts.isBinaryExpression(node)) {
+            const kind = node.operatorToken.kind;
+            if ([ts.SyntaxKind.PlusToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(kind)) {
+                checkExpression(node.left);
+                checkExpression(node.right);
+            } else if (kind === ts.SyntaxKind.AmpersandAmpersandToken) checkExpression(node.right);
+        }
+    }
     function visit(node) {
         if (ts.isCallExpression(node) && node.expression.getText(sf) === "uiText") {
             const source = node.arguments[0];
-            if (source && ts.isStringLiteralLike(source) && !Object.hasOwn(dictionary, source.text)) {
-                report(node, `Missing dictionary key: ${source.text}`);
-            }
-            return;
+            if (source) checkKey(source);
         }
         if (covered) {
-            let source;
-            if (ts.isJsxText(node)) source = node.text.replace(/\s+/g, " ").trim();
-            if (ts.isStringLiteralLike(node) && ts.isJsxAttribute(node.parent) && attrs.has(node.parent.name.getText(sf))) source = node.text;
-            if (ts.isStringLiteralLike(node) && ts.isJsxExpression(node.parent) && !ts.isJsxAttribute(node.parent.parent)) source = node.text;
-            if (source && /[A-Za-z]/.test(source) && !allowlist[relative]?.[source]) report(node, `Untranslated UI: ${source}`);
+            if (ts.isJsxText(node)) checkText(node, node.text.replace(/\s+/g, " ").trim());
+            if (ts.isJsxAttribute(node) && attrs.has(node.name.getText(sf)) && node.initializer && ts.isStringLiteralLike(node.initializer)) checkText(node.initializer, node.initializer.text);
+            if (ts.isJsxExpression(node) && node.expression && (!ts.isJsxAttribute(node.parent) || attrs.has(node.parent.name.getText(sf)))) checkExpression(node.expression);
         }
         ts.forEachChild(node, visit);
     }

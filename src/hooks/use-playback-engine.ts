@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { uiText } from "@/lib/i18n";
+import { useUiText } from "@/lib/i18n/client";
 import type { Recording } from "@/types/recording";
 
 export const PLAYBACK_SPEED_OPTIONS = [
@@ -42,6 +42,8 @@ export function usePlaybackEngine({
     initialVolume = 75,
     initialAutoPlayNext = false,
 }: Options) {
+    const uiText = useUiText();
+
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -142,7 +144,7 @@ export function usePlaybackEngine({
             });
         }
         setIsPlaying(!isPlaying);
-    }, [isPlaying, playbackSpeed]);
+    }, [uiText, isPlaying, playbackSpeed]);
 
     /**
      * Seek to a ratio in [0, 1] of the audio's duration. Used by both
