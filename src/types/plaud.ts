@@ -18,7 +18,7 @@ export interface PlaudRecording {
     filesize: number;
     filetype: string;
     fullname: string;
-    file_md5: string;
+    file_md5?: string;
     ori_ready: boolean;
     version: number;
     version_ms: number;
@@ -28,11 +28,11 @@ export interface PlaudRecording {
     start_time: number; // Unix timestamp in milliseconds
     end_time: number; // Unix timestamp in milliseconds
     duration: number; // Duration in milliseconds
-    timezone: number;
-    zonemins: number;
-    scene: number;
+    timezone?: number;
+    zonemins?: number;
+    scene?: number;
     filetag_id_list: string[];
-    serial_number: string;
+    serial_number?: string;
     is_trans: boolean;
     is_summary: boolean;
 }
@@ -40,7 +40,7 @@ export interface PlaudRecording {
 export interface PlaudRecordingsResponse {
     status: number;
     msg: string;
-    data_file_total: number;
+    data_file_total?: number;
     data_file_list: PlaudRecording[];
 }
 

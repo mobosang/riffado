@@ -378,14 +378,14 @@ async function processRecording(
 
         const recordingData = {
             userId: context.userId,
-            deviceSn: plaudRecording.serial_number,
+            deviceSn: plaudRecording.serial_number ?? "plaud",
             plaudFileId: plaudRecording.id,
             filename: encryptText(plaudRecording.filename),
             duration: plaudRecording.duration,
             startTime: new Date(plaudRecording.start_time),
             endTime: new Date(plaudRecording.end_time),
             filesize: plaudRecording.filesize,
-            fileMd5: plaudRecording.file_md5,
+            fileMd5: plaudRecording.file_md5 ?? "",
             storageType: env.DEFAULT_STORAGE_TYPE,
             storagePath: storageKey,
             downloadedAt: new Date(),
@@ -416,7 +416,12 @@ async function processRecording(
 
                 await tx
                     .update(recordings)
-                    .set({ ...recordingData, updatedAt: new Date() })
+                    .set({
+                        ...recordingData,
+                        deviceSn: plaudRecording.serial_number,
+                        fileMd5: plaudRecording.file_md5,
+                        updatedAt: new Date(),
+                    })
                     .where(
                         and(
                             eq(recordings.id, existingRecording.id),

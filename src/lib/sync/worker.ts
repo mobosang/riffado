@@ -61,7 +61,18 @@ async function tick(): Promise<void> {
         let errors = 0;
         for (const userId of userIds) {
             try {
-                await syncRecordingsForUser(userId, "background");
+                const result = await syncRecordingsForUser(
+                    userId,
+                    "background",
+                );
+                if (result.skipped || result.inProgress) continue;
+                if (result.errors.length > 0) {
+                    errors++;
+                    console.error(
+                        `[background-sync] sync returned ${result.errors.length} error(s) for user ${userId}`,
+                    );
+                    continue;
+                }
                 synced++;
             } catch (error) {
                 errors++;
