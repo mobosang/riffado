@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { TranscribeInBrowserButton } from "@/components/dashboard/transcribe-in-browser-button";
+import { ReportCard } from "@/components/recordings/report-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -427,6 +428,11 @@ export function TranscriptionPanel({
                     </CardContent>
                 </Card>
             )}
+            <ReportCard
+                key={recording.id}
+                id={recording.id}
+                canGenerate={Boolean(activeTranscript?.text)}
+            />
         </div>
     );
 }

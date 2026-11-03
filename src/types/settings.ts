@@ -8,6 +8,7 @@ export type SettingsSection =
     | "webhooks"
     | "transcription"
     | "summary"
+    | "report"
     | "storage"
     | "sync"
     | "plaud-account"

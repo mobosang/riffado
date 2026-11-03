@@ -5,6 +5,7 @@ import { userSettings, users } from "@/db/schema";
 import {
     isValidSummaryPromptConfig,
     normalizeAiOutputLanguage,
+    SUMMARY_PRESETS,
 } from "@/lib/ai/summary-presets";
 import { requireApiSession } from "@/lib/auth-server";
 import { decryptJsonField, encryptJsonField } from "@/lib/encryption/fields";
@@ -150,6 +151,7 @@ export const GET = apiHandler(async (request: Request) => {
     }
 
     const settingsData = extractSettings(settings);
+    settingsData.reportPreset = settings.reportPreset ?? "meeting-notes";
     if (settings.titleGenerationPrompt) {
         settingsData.titleGenerationPrompt = decryptJsonField(
             settings.titleGenerationPrompt,
@@ -231,6 +233,18 @@ export const PUT = apiHandler(async (request: Request) => {
         insertData.titleGenerationPrompt = null;
     }
 
+    if (body.reportPreset !== undefined) {
+        if (
+            typeof body.reportPreset !== "string" ||
+            !Object.hasOwn(SUMMARY_PRESETS, body.reportPreset)
+        )
+            throw new AppError(
+                ErrorCode.INVALID_INPUT,
+                "Invalid report template",
+                400,
+            );
+        updateData.reportPreset = insertData.reportPreset = body.reportPreset;
+    }
     if (body.summaryPrompt !== undefined) {
         if (
             body.summaryPrompt !== null &&

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>总结模板 · Riffado</title>
+<style>
+:root{font:16px/1.6 system-ui,sans-serif;color:#182e35;background:#f2f6f5}
+main{max-width:42rem;margin:5vh auto;padding:1.5rem}
+details,form{background:white;border:1px solid #cbd9d6;border-radius:.75rem;padding:1rem;margin:.65rem 0}
+summary,button{cursor:pointer;font-weight:650}input,button{box-sizing:border-box;font:inherit;padding:.5rem;border-radius:.4rem}
+input{width:100%;margin:.6rem 0;border:1px solid #81938f}button{background:#175d52;color:white;border:0}
+</style>
+<main>
+<small>Riffado · 录音工作台</small>
+<h1>总结模板</h1>
+<p>展开模板可查看示例。以下内容用于预览，不会读取录音或调用 AI。</p>
+<details open><summary>会议纪要</summary><p>讨论：确定试用范围。<br>决定：先邀请三位用户。<br>待办：小林周五前收集反馈。</p></details>
+<details><summary>通用摘要</summary><p>团队决定先小范围试用新功能，收集首轮反馈后再决定是否推广。</p></details>
+<details><summary>关键要点</summary><ul><li>首轮试用面向三位用户。</li><li>反馈将在周五汇总。</li></ul></details>
+<details><summary>行动事项</summary><p>小林：周五前汇总三位试用用户的反馈。</p></details>
+<form>
+<label for="recording">用自己的录音生成总结</label>
+<p>从已更新的 Riffado 复制一条有转写的录音详情链接，粘贴到下方。</p>
+<input id="recording" type="url" required placeholder="http://服务器:3331/recordings/录音ID">
+<button>打开这条录音的总结</button>
+</form>
+</main>
+<script>
+const field = document.querySelector("#recording");
+field.oninput = () => field.setCustomValidity("");
+document.querySelector("form").onsubmit = event => {
+    event.preventDefault();
+    const url = new URL(field.value);
+    if (!["http:", "https:"].includes(url.protocol) || !/^\/recordings\/[\w-]+\/?$/.test(url.pathname) || url.username || url.password) {
+        field.setCustomValidity("请填写完整的 HTTP 或 HTTPS 录音详情链接，路径为 /recordings/录音ID。");
+        field.reportValidity();
+        return;
+    }
+    url.hash = "report";
+    location.assign(url.href);
+};
+</script>
+</html>

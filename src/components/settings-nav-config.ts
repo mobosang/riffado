@@ -50,6 +50,11 @@ export function buildSettingsNavGroups(opts: {
                     icon: FileText,
                 },
                 { name: uiText("Summary"), id: "summary", icon: ListChecks },
+                {
+                    name: uiText("Recording report"),
+                    id: "report",
+                    icon: FileText,
+                },
             ],
         },
         {

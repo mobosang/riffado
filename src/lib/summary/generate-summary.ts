@@ -15,7 +15,11 @@ import {
     type SummaryPromptConfiguration,
 } from "@/lib/ai/summary-presets";
 import { decrypt } from "@/lib/encryption";
-import { decryptJsonField, decryptText } from "@/lib/encryption/fields";
+import {
+    decryptJsonField,
+    decryptText,
+    encryptJsonField,
+} from "@/lib/encryption/fields";
 import { AppError, ErrorCode } from "@/lib/errors";
 import { captureServerEvent } from "@/lib/posthog-server";
 import { upsertEnhancement } from "@/lib/transcription/persist";
@@ -27,6 +31,7 @@ export interface GenerateSummaryOptions {
      * user's saved preset (which itself falls back to "general").
      */
     presetId?: string;
+    report?: boolean;
     /** Analytics `trigger` property on the `summary_generated` event. */
     trigger?: "manual" | "auto";
 }
@@ -135,8 +140,9 @@ export async function generateSummaryForRecording(
     }
 
     // Preset resolution: explicit override > user default > "general".
-    const selectedPreset =
-        opts.presetId || promptConfig.selectedPrompt || "general";
+    const selectedPreset = opts.report
+        ? userSettingsRow?.reportPreset || "meeting-notes"
+        : opts.presetId || promptConfig.selectedPrompt || "general";
     let promptTemplate = getSummaryPromptById(selectedPreset, promptConfig);
 
     // Tracks the prompt id actually used, which can differ from
@@ -291,6 +297,37 @@ export async function generateSummaryForRecording(
 
     // Persist the riffado-generated summary via the shared, tombstone-aware
     // upsert. Summaries stay single per recording; `source` records the origin.
+    if (opts.report) {
+        if (!summary.trim())
+            throw new AppError(ErrorCode.INTERNAL_ERROR, "Empty report", 502);
+        const report = {
+            summary,
+            keyPoints: keyPoints.filter((x) => typeof x === "string"),
+            actionItems: actionItems.filter((x) => typeof x === "string"),
+            provider: credentials.provider,
+            model,
+            promptId: usedPromptId,
+            promptFallback: false,
+        };
+        const rows = await db
+            .update(recordings)
+            .set({ report: encryptJsonField(report), updatedAt: new Date() })
+            .where(
+                and(
+                    eq(recordings.id, recordingId),
+                    eq(recordings.userId, userId),
+                    isNull(recordings.deletedAt),
+                ),
+            )
+            .returning({ id: recordings.id });
+        if (!rows.length)
+            throw new AppError(
+                ErrorCode.NOT_FOUND,
+                "Recording was deleted",
+                410,
+            );
+        return report;
+    }
     const { committed } = await upsertEnhancement({
         userId,
         recordingId,

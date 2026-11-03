@@ -21,6 +21,7 @@ interface ManifestRecording {
     deviceSn: string;
     audio: { included: boolean; path: string | null; reason?: string };
     transcript: { included: boolean; path: string | null };
+    report?: { path: string };
     summary: { included: boolean; path: string | null };
 }
 
@@ -306,6 +307,14 @@ export async function buildAndUploadExportArchive(input: {
             entry.summary = { included: true, path: summaryPath };
         }
 
+        if (recording.report) {
+            const path = `${folder}/report.json`;
+            archive.append(
+                JSON.stringify(decryptJsonField(recording.report), null, 2),
+                { name: path },
+            );
+            entry.report = { path };
+        }
         manifest.recordings.push(entry);
     }
 

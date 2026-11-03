@@ -107,6 +107,7 @@ export const GET = apiHandler(async (request: Request) => {
                         filesize: recording.filesize,
                         transcription:
                             transcriptionMap.get(recording.id)?.text || null,
+                        report: decryptJsonField(recording.report),
                         summary: enhancement
                             ? {
                                   summary: enhancement.summary,

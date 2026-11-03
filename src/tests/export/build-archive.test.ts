@@ -134,6 +134,7 @@ describe("buildAndUploadExportArchive", () => {
                     id: "rec-1",
                     userId: "user-1",
                     filename: "enc-filename",
+                    report: { summary: "Independent report" },
                     startTime: new Date("2026-01-01T00:00:00Z"),
                     endTime: new Date("2026-01-01T00:01:00Z"),
                     duration: 60000,
@@ -185,6 +186,13 @@ describe("buildAndUploadExportArchive", () => {
         expect(manifest.recordings[0].audio.included).toBe(true);
         expect(manifest.recordings[0].transcript.included).toBe(true);
         expect(manifest.recordings[0].summary.included).toBe(true);
+        expect(
+            JSON.parse(
+                entries
+                    .get(manifest.recordings[0].report.path)
+                    ?.buffer.toString() ?? "null",
+            ),
+        ).toEqual({ summary: "Independent report" });
         expect(manifest.recordings[0].filename).toBe("decrypted:enc-filename");
 
         const transcriptEntry = [...entries.entries()].find(([n]) =>

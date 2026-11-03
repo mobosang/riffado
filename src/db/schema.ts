@@ -295,6 +295,7 @@ export const recordings = pgTable(
         // array of N normalized floats in [0, 1] (typically N=500),
         // so payload is ~3–6 KB. Used purely for visualization — no
         // audio reconstruction is possible from these values.
+        report: jsonb("report"),
         waveformPeaks: jsonb("waveform_peaks"),
         // Soft-delete tombstone. Set when the user deletes a recording from
         // Riffado's UI. Sync skips tombstoned rows so re-syncing from Plaud
@@ -536,6 +537,7 @@ export const userSettings = pgTable("user_settings", {
     // Title generation prompt configuration
     titleGenerationPrompt: jsonb("title_generation_prompt"), // { preset: string, customPrompt?: string }
     // Summary prompt configuration
+    reportPreset: text("report_preset"),
     summaryPrompt: jsonb("summary_prompt"), // { selectedPrompt: string, customPrompts: CustomPrompt[] }
     // AI output language (applies to summaries and AI-generated titles).
     // null or "auto" => match transcript language (default behavior).
