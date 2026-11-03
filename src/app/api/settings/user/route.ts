@@ -1,11 +1,12 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { userSettings, users } from "@/db/schema";
+import { REPORT_PRESETS } from "@/lib/ai/report-presets";
+import { isVisualOptions } from "@/lib/ai/report-visuals";
 import {
     isValidSummaryPromptConfig,
     normalizeAiOutputLanguage,
-    SUMMARY_PRESETS,
 } from "@/lib/ai/summary-presets";
 import { requireApiSession } from "@/lib/auth-server";
 import { decryptJsonField, encryptJsonField } from "@/lib/encryption/fields";
@@ -152,6 +153,7 @@ export const GET = apiHandler(async (request: Request) => {
 
     const settingsData = extractSettings(settings);
     settingsData.reportPreset = settings.reportPreset ?? "meeting-notes";
+    settingsData.reportVisuals = settings.reportVisuals ?? {};
     if (settings.titleGenerationPrompt) {
         settingsData.titleGenerationPrompt = decryptJsonField(
             settings.titleGenerationPrompt,
@@ -236,7 +238,7 @@ export const PUT = apiHandler(async (request: Request) => {
     if (body.reportPreset !== undefined) {
         if (
             typeof body.reportPreset !== "string" ||
-            !Object.hasOwn(SUMMARY_PRESETS, body.reportPreset)
+            !Object.hasOwn(REPORT_PRESETS, body.reportPreset)
         )
             throw new AppError(
                 ErrorCode.INVALID_INPUT,
@@ -244,6 +246,20 @@ export const PUT = apiHandler(async (request: Request) => {
                 400,
             );
         updateData.reportPreset = insertData.reportPreset = body.reportPreset;
+    }
+    if (body.reportVisualOptions !== undefined) {
+        if (
+            !Object.hasOwn(REPORT_PRESETS, body.reportPreset) ||
+            !isVisualOptions(body.reportVisualOptions)
+        )
+            throw new AppError(
+                ErrorCode.INVALID_INPUT,
+                "Invalid report visual options",
+                400,
+            );
+        const patch = { [body.reportPreset]: body.reportVisualOptions };
+        insertData.reportVisuals = patch;
+        updateData.reportVisuals = sql`coalesce(${userSettings.reportVisuals}, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb`;
     }
     if (body.summaryPrompt !== undefined) {
         if (

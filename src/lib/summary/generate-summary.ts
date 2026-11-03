@@ -8,6 +8,8 @@ import {
     userSettings,
 } from "@/db/schema";
 import { buildChatCompletionParams } from "@/lib/ai/chat-completion-params";
+import { REPORT_PRESETS, type ReportPreset } from "@/lib/ai/report-presets";
+import { NO_VISUALS, VISUAL_PROMPTS } from "@/lib/ai/report-visuals";
 import {
     getAiOutputLanguageDirective,
     getDefaultSummaryPromptConfig,
@@ -143,7 +145,11 @@ export async function generateSummaryForRecording(
     const selectedPreset = opts.report
         ? userSettingsRow?.reportPreset || "meeting-notes"
         : opts.presetId || promptConfig.selectedPrompt || "general";
-    let promptTemplate = getSummaryPromptById(selectedPreset, promptConfig);
+    let promptTemplate = opts.report
+        ? Object.hasOwn(REPORT_PRESETS, selectedPreset)
+            ? REPORT_PRESETS[selectedPreset as ReportPreset].prompt
+            : null
+        : getSummaryPromptById(selectedPreset, promptConfig);
 
     // Tracks the prompt id actually used, which can differ from
     // `selectedPreset` below (e.g. the request or the saved default
@@ -248,9 +254,17 @@ export async function generateSummaryForRecording(
 
     const baseSystem =
         "You are a helpful assistant that summarizes audio transcriptions. Always respond with valid JSON only, no markdown formatting or code fences.";
-    const systemContent = languageDirective
-        ? `${baseSystem} ${languageDirective}`
-        : baseSystem;
+    const visuals =
+        (opts.report && userSettingsRow?.reportVisuals?.[usedPromptId]) ||
+        NO_VISUALS;
+    const systemContent = [
+        baseSystem,
+        visuals.mindMap && VISUAL_PROMPTS.mindMap,
+        visuals.tagChart && VISUAL_PROMPTS.tagChart,
+        languageDirective,
+    ]
+        .filter(Boolean)
+        .join(" ");
 
     const response = await openai.chat.completions.create(
         buildChatCompletionParams({
@@ -301,6 +315,7 @@ export async function generateSummaryForRecording(
         if (!summary.trim())
             throw new AppError(ErrorCode.INTERNAL_ERROR, "Empty report", 502);
         const report = {
+            visuals,
             summary,
             keyPoints: keyPoints.filter((x) => typeof x === "string"),
             actionItems: actionItems.filter((x) => typeof x === "string"),

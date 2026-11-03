@@ -17,6 +17,7 @@ import {
     varchar,
 } from "drizzle-orm/pg-core";
 import { nanoid } from "nanoid";
+import type { VisualOptions } from "@/lib/ai/report-visuals";
 
 export const userPlanEnum = pgEnum("user_plan", [
     "self_host",
@@ -538,6 +539,8 @@ export const userSettings = pgTable("user_settings", {
     titleGenerationPrompt: jsonb("title_generation_prompt"), // { preset: string, customPrompt?: string }
     // Summary prompt configuration
     reportPreset: text("report_preset"),
+    reportVisuals:
+        jsonb("report_visuals").$type<Record<string, VisualOptions>>(),
     summaryPrompt: jsonb("summary_prompt"), // { selectedPrompt: string, customPrompts: CustomPrompt[] }
     // AI output language (applies to summaries and AI-generated titles).
     // null or "auto" => match transcript language (default behavior).

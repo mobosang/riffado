@@ -3,14 +3,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SUMMARY_PRESETS, type SummaryPreset } from "@/lib/ai/summary-presets";
+import { REPORT_PRESETS, type ReportPreset } from "@/lib/ai/report-presets";
+import type { VisualKind, VisualOptions } from "@/lib/ai/report-visuals";
 import { useUiText } from "@/lib/i18n/client";
+import { ReportImage } from "./report-image";
 
 interface Report {
+    visuals?: VisualOptions;
     summary: string;
     keyPoints: string[];
     actionItems: string[];
-    promptId: SummaryPreset;
+    promptId: ReportPreset;
 }
 export function ReportCard({
     id,
@@ -88,7 +91,7 @@ export function ReportCard({
                     <div className="space-y-3">
                         <small>
                             {t(
-                                SUMMARY_PRESETS[data.promptId]?.name ??
+                                REPORT_PRESETS[data.promptId]?.name ??
                                     "Recording report",
                             )}
                         </small>
@@ -108,6 +111,39 @@ export function ReportCard({
                                             ))}
                                         </ul>
                                     </div>
+                                ),
+                        )}
+                        {(
+                            [
+                                "mindMap",
+                                "tagChart",
+                            ] as const satisfies readonly VisualKind[]
+                        ).map(
+                            (kind) =>
+                                data.visuals?.[kind] && (
+                                    <ReportImage
+                                        key={kind}
+                                        kind={kind}
+                                        title={
+                                            kind === "mindMap"
+                                                ? t("Mind map")
+                                                : t("Tag chart")
+                                        }
+                                        groups={[
+                                            {
+                                                label: t("Recording report"),
+                                                items: [data.summary],
+                                            },
+                                            {
+                                                label: t("Key Points"),
+                                                items: data.keyPoints,
+                                            },
+                                            {
+                                                label: t("Action Items"),
+                                                items: data.actionItems,
+                                            },
+                                        ]}
+                                    />
                                 ),
                         )}
                     </div>

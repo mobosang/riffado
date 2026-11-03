@@ -274,6 +274,13 @@
       "when": 1793691930306,
       "tag": "0038_tan_peter_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793692799304,
+      "tag": "0039_nosy_steel_serpent",
+      "breakpoints": true
     }
   ]
 }
