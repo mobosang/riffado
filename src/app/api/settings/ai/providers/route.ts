@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { apiCredentials } from "@/db/schema";
+import { apiCredentials, userSettings } from "@/db/schema";
 import { listUserProviders } from "@/lib/ai/list-providers";
 import { setDefaultTranscriptionProvider } from "@/lib/ai/set-default-transcription";
 import { validateAiBaseUrl } from "@/lib/ai/validate-base-url";
@@ -122,4 +122,45 @@ export const POST = apiHandler(async (request: Request) => {
     });
 
     return NextResponse.json({ provider: newProvider });
+});
+
+export const PUT = apiHandler(async (request: Request) => {
+    const { user } = await requireApiSession(request);
+    const body = await request.json().catch(() => null);
+    const id: unknown = body?.reportProviderId;
+    if (id !== null && (typeof id !== "string" || !id.trim()))
+        throw new AppError(
+            ErrorCode.INVALID_INPUT,
+            "Invalid report provider",
+            400,
+        );
+    await db.transaction(async (tx) => {
+        if (id !== null) {
+            const [owned] = await tx
+                .select({ id: apiCredentials.id })
+                .from(apiCredentials)
+                .where(
+                    and(
+                        eq(apiCredentials.userId, user.id),
+                        eq(apiCredentials.id, id),
+                    ),
+                )
+                .limit(1)
+                .for("key share");
+            if (!owned)
+                throw new AppError(
+                    ErrorCode.NOT_FOUND,
+                    "Report provider not found",
+                    404,
+                );
+        }
+        await tx
+            .insert(userSettings)
+            .values({ userId: user.id, reportProviderId: id })
+            .onConflictDoUpdate({
+                target: userSettings.userId,
+                set: { reportProviderId: id, updatedAt: new Date() },
+            });
+    });
+    return NextResponse.json({ success: true });
 });

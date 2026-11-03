@@ -1,0 +1,2 @@
+ALTER TABLE "user_settings" ADD COLUMN "report_provider_id" text;--> statement-breakpoint
+ALTER TABLE "user_settings" ADD CONSTRAINT "user_settings_report_provider_id_api_credentials_id_fk" FOREIGN KEY ("report_provider_id") REFERENCES "public"."api_credentials"("id") ON DELETE set null ON UPDATE no action;

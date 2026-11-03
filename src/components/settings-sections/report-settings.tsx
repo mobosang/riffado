@@ -95,7 +95,7 @@ export function ReportSettings() {
                             })
                         }
                     />{" "}
-                    {t("Tag chart")}
+                    {t("Report brief")}
                 </label>
             </fieldset>
         </fieldset>

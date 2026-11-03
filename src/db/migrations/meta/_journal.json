@@ -281,6 +281,13 @@
       "when": 1793692799304,
       "tag": "0039_nosy_steel_serpent",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793694754699,
+      "tag": "0040_third_dreadnoughts",
+      "breakpoints": true
     }
   ]
 }

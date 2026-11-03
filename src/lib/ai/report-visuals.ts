@@ -2,7 +2,7 @@ export const VISUAL_PROMPTS = {
     mindMap:
         "The report will also be a mind map. Make each key point or action self-contained and group only facts that belong to the same project. Preserve dependencies, uncertainty, numbers, units, owners and deadlines. Do not invent links or produce diagram code.",
     tagChart:
-        "The report will also be a tag chart. Start each point and action with its specific topic, followed by the supporting detail. Keep names, status, measurements and conditions exactly as reported. Do not infer priorities or tag weights.",
+        "The report doubles as a one-page decision brief. Begin summary with one concise takeaway. Format each keyPoints string as a short topic name, a colon and space, then a concise decision or status with its evidence. Prefer one topic per point. Preserve exact numbers, dates, conditions and uncertainty. In actionItems include owners and deadlines only when stated. Keep the requested JSON fields and output language.",
 };
 export type VisualKind = keyof typeof VISUAL_PROMPTS;
 export interface VisualOptions {

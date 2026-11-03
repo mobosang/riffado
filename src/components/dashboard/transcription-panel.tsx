@@ -431,6 +431,7 @@ export function TranscriptionPanel({
             <ReportCard
                 key={recording.id}
                 id={recording.id}
+                title={recording.filename}
                 canGenerate={Boolean(activeTranscript?.text)}
             />
         </div>

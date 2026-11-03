@@ -28,6 +28,7 @@ import {
     userSettings,
 } from "@/db/schema";
 import { ErrorCode, mapErrorToAppError } from "@/lib/errors";
+import { generateSummaryForRecording } from "@/lib/summary/generate-summary";
 
 vi.mock("@/lib/posthog-server", () => ({
     captureServerException: vi.fn(),
@@ -108,6 +109,34 @@ describe("POST /api/recordings/[id]/summary — no transcript truncation (#213)"
     beforeEach(() => {
         createMock.mockReset();
         selectResults.clear();
+    });
+
+    it("does not send a report to a fallback when its selected provider is unavailable", async () => {
+        selectResults.set(recordings, [[{ id: "rec" }]]);
+        selectResults.set(transcriptions, [[{ text: "Private transcript" }]]);
+        selectResults.set(userSettings, [[{ reportProviderId: "missing" }]]);
+        selectResults.set(apiCredentials, [[], [{ id: "other" }]]);
+        await expect(
+            generateSummaryForRecording("user", "rec", { report: true }),
+        ).rejects.toMatchObject({ code: ErrorCode.NOT_FOUND });
+        expect(selectResults.get(apiCredentials)).toHaveLength(1);
+        expect(createMock).not.toHaveBeenCalled();
+    });
+    it("propagates the selected report endpoint failure without retrying another provider", async () => {
+        selectResults.set(recordings, [[{ id: "rec" }]]);
+        selectResults.set(transcriptions, [[{ text: "Private transcript" }]]);
+        selectResults.set(userSettings, [[{ reportProviderId: "selected" }]]);
+        selectResults.set(apiCredentials, [
+            [{ id: "selected", apiKey: "key", defaultModel: "report-model" }],
+            [{ id: "other" }],
+        ]);
+        createMock.mockRejectedValue(new Error("endpoint unavailable"));
+        await expect(
+            generateSummaryForRecording("user", "rec", { report: true }),
+        ).rejects.toThrow("endpoint unavailable");
+        expect(createMock).toHaveBeenCalledTimes(1);
+        expect(createMock.mock.calls[0][0].model).toBe("report-model");
+        expect(selectResults.get(apiCredentials)).toHaveLength(1);
     });
 
     it("forwards the entire transcript to the model, including text past the old 8000-char limit", async () => {

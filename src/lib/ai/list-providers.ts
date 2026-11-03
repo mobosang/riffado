@@ -16,6 +16,7 @@ export interface ProviderListItem {
     createdAt: Date;
     /** Present and true only for the instance-managed included provider. */
     managed?: boolean;
+    isReportProvider?: boolean;
     /** Managed only: headline monthly capacity in seconds. */
     includedSeconds?: number;
     /** Managed only: whether the current plan can use it right now. */
@@ -36,7 +37,10 @@ export async function listUserProviders(
     userId: string,
 ): Promise<ProviderListItem[]> {
     const [settings] = await db
-        .select({ pointer: userSettings.defaultTranscriptionProviderId })
+        .select({
+            pointer: userSettings.defaultTranscriptionProviderId,
+            report: userSettings.reportProviderId,
+        })
         .from(userSettings)
         .where(eq(userSettings.userId, userId))
         .limit(1);
@@ -56,6 +60,7 @@ export async function listUserProviders(
 
     const credentials: ProviderListItem[] = rows.map((row) => ({
         ...row,
+        isReportProvider: row.id === settings?.report,
         isDefaultTranscription: row.id === pointer,
     }));
 

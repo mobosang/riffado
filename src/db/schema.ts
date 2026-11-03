@@ -492,6 +492,10 @@ export const userSettings = pgTable("user_settings", {
     // the managed "riffado-included" sentinel, or null (no explicit choice
     // -> hosted managed fallback). Supersedes the per-row
     // api_credentials.is_default_transcription boolean for selection.
+    reportProviderId: text("report_provider_id").references(
+        () => apiCredentials.id,
+        { onDelete: "set null" },
+    ),
     defaultTranscriptionProviderId: text("default_transcription_provider_id"),
     // Display/UI settings
     dateTimeFormat: varchar("date_time_format", { length: 20 })

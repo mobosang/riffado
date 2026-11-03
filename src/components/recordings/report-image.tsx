@@ -1,11 +1,9 @@
-import type { VisualKind } from "@/lib/ai/report-visuals";
-
 interface Group {
     label: string;
     items: string[];
 }
 
-function lines(text: string, width: number) {
+export function wrapReportText(text: string, width: number) {
     const result: string[] = [];
     const segmenter = new Intl.Segmenter(undefined, {
         granularity: "grapheme",
@@ -29,15 +27,12 @@ function lines(text: string, width: number) {
 }
 
 export function ReportImage({
-    kind,
     title,
     groups,
 }: {
-    kind: VisualKind;
     title: string;
     groups: Group[];
 }) {
-    const tree = kind === "mindMap";
     const width = 680;
     let y = 58;
     const sections = groups
@@ -46,33 +41,27 @@ export function ReportImage({
             const color = ["#215e54", "#315582", "#765121"][groupIndex % 3];
             const start = y;
             y += 34;
-            let rowHeight = 0;
+
             const nodes = [...new Set(items)].map((item, index, all) => {
-                const w = tree ? 588 : 310;
-                const x = tree ? 68 : 20 + (index % 2) * 328;
+                const w = 588;
+                const x = 68;
                 const top = y;
-                const wrapped = lines(item, w - 30);
+                const wrapped = wrapReportText(item, w - 30);
                 const h = wrapped.length * 22 + 16;
-                rowHeight = Math.max(rowHeight, h);
-                if (tree || index % 2 === 1 || index === all.length - 1) {
-                    y += rowHeight + 10;
-                    rowHeight = 0;
-                }
+                y += h + 10;
                 return (
                     <g key={item}>
-                        {tree && (
-                            <path
-                                d={`M48 ${top - 10} V${top + h / 2} H${x} M48 ${top + h / 2} v${index === all.length - 1 ? 0 : h / 2 + 10}`}
-                                stroke={color}
-                                fill="none"
-                            />
-                        )}
+                        <path
+                            d={`M48 ${top - 10} V${top + h / 2} H${x} M48 ${top + h / 2} v${index === all.length - 1 ? 0 : h / 2 + 10}`}
+                            stroke={color}
+                            fill="none"
+                        />
                         <rect
                             x={x}
                             y={top}
                             width={w}
                             height={h}
-                            rx={tree ? 6 : 16}
+                            rx={6}
                             fill="#fff"
                             stroke={color}
                         />
@@ -93,13 +82,11 @@ export function ReportImage({
             y += 10;
             return (
                 <g key={label}>
-                    {tree && (
-                        <path
-                            d={`M12 ${groupIndex === 0 ? 41 : start - 10} V${start + 13} H24 M12 ${start + 13} V${y - 10}`}
-                            fill="none"
-                            stroke="#68857b"
-                        />
-                    )}
+                    <path
+                        d={`M12 ${groupIndex === 0 ? 41 : start - 10} V${start + 13} H24 M12 ${start + 13} V${y - 10}`}
+                        fill="none"
+                        stroke="#68857b"
+                    />
                     <rect
                         x={24}
                         y={start}

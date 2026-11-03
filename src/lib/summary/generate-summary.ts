@@ -176,24 +176,35 @@ export async function generateSummaryForRecording(
 
     // Credentials: prefer the user's enhancement-default provider, fall
     // back to any configured provider.
-    const [enhancementCredentials] = await db
+    const reportProviderId = opts.report
+        ? userSettingsRow?.reportProviderId
+        : null;
+    const [preferredCredentials] = await db
         .select()
         .from(apiCredentials)
         .where(
             and(
                 eq(apiCredentials.userId, userId),
-                eq(apiCredentials.isDefaultEnhancement, true),
+                reportProviderId
+                    ? eq(apiCredentials.id, reportProviderId)
+                    : eq(apiCredentials.isDefaultEnhancement, true),
             ),
         )
         .limit(1);
 
-    const [fallbackCredentials] = await db
-        .select()
-        .from(apiCredentials)
-        .where(eq(apiCredentials.userId, userId))
-        .limit(1);
-
-    const credentials = enhancementCredentials || fallbackCredentials;
+    if (reportProviderId && !preferredCredentials)
+        throw new AppError(
+            ErrorCode.NOT_FOUND,
+            "Report provider not found",
+            404,
+        );
+    const [credentials] = preferredCredentials
+        ? [preferredCredentials]
+        : await db
+              .select()
+              .from(apiCredentials)
+              .where(eq(apiCredentials.userId, userId))
+              .limit(1);
 
     if (!credentials) {
         throw new AppError(

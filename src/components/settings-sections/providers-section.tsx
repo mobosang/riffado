@@ -9,6 +9,7 @@ import { EditProviderDialog } from "@/components/settings/edit-provider-dialog";
 import { SettingsSectionHeader } from "@/components/settings/section-header";
 import { PromptManager } from "@/components/settings-sections/prompt-manager";
 import { Button } from "@/components/ui/button";
+import { getApiErrorMessage } from "@/lib/api-errors";
 import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
@@ -23,6 +24,7 @@ interface Provider {
     isDefaultEnhancement: boolean;
     createdAt: Date;
     managed?: boolean;
+    isReportProvider?: boolean;
     includedSeconds?: number;
     available?: boolean;
 }
@@ -114,12 +116,52 @@ export function ProvidersSection({
         })();
     };
 
+    const [savingReport, setSavingReport] = useState(false);
+    async function setReportProvider(reportProviderId: string | null) {
+        setSavingReport(true);
+        try {
+            const response = await fetch("/api/settings/ai/providers", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reportProviderId }),
+            });
+            if (!response.ok)
+                throw new Error(
+                    await getApiErrorMessage(
+                        response,
+                        "Failed to update default",
+                        uiText.locale,
+                    ),
+                );
+            setProviders((rows) =>
+                rows.map((row) => ({
+                    ...row,
+                    isReportProvider: row.id === reportProviderId,
+                })),
+            );
+        } catch (error) {
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : uiText("Failed to update default"),
+            );
+        } finally {
+            setSavingReport(false);
+        }
+    }
+
     const handleDelete = (id: string) => {
         void confirm({
             title: uiText("Delete this provider?"),
-            description: uiText(
-                "Its API key will be removed from this account. Recordings transcribed or summarized through it keep their data, but you'll need to re-add the provider to use it again.",
-            ),
+            description: providers.some(
+                (p) => p.id === id && p.isReportProvider,
+            )
+                ? uiText(
+                      "Deleting this provider will make reports follow AI enhancement again.",
+                  )
+                : uiText(
+                      "Its API key will be removed from this account. Recordings transcribed or summarized through it keep their data, but you'll need to re-add the provider to use it again.",
+                  ),
             confirmLabel: uiText("Delete"),
             pendingLabel: uiText("Deleting…"),
             destructive: true,
@@ -201,6 +243,8 @@ export function ProvidersSection({
                         onAdd={() => setIsAddProviderOpen(true)}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
+                        savingReport={savingReport}
+                        onReport={setReportProvider}
                         onSetDefault={handleSetDefaultTranscription}
                     />
                 )}
@@ -248,6 +292,8 @@ function ProvidersList({
     onAdd,
     onEdit,
     onDelete,
+    savingReport,
+    onReport,
     onSetDefault,
 }: {
     providers: Provider[];
@@ -255,6 +301,8 @@ function ProvidersList({
     onAdd: () => void;
     onEdit: (provider: Provider) => void;
     onDelete: (id: string) => void;
+    savingReport: boolean;
+    onReport: (id: string | null) => void;
     onSetDefault: (id: string) => void;
 }) {
     const uiText = useUiText();
@@ -345,6 +393,11 @@ function ProvidersList({
                                         {uiText("Transcription")}
                                     </span>
                                 )}
+                                {provider.isReportProvider && (
+                                    <span className="text-xs rounded border px-2 py-0.5">
+                                        {uiText("Recording report")}
+                                    </span>
+                                )}
                                 {provider.isDefaultEnhancement && (
                                     <span className="text-xs px-2 py-0.5 bg-purple-500/10 text-purple-600 rounded border border-purple-500/20">
                                         {uiText("Enhancement")}
@@ -364,6 +417,24 @@ function ProvidersList({
                             )}
                         </div>
                         <div className="flex items-center gap-2 ml-4">
+                            <Button
+                                disabled={savingReport}
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                    onReport(
+                                        provider.isReportProvider
+                                            ? null
+                                            : provider.id,
+                                    )
+                                }
+                            >
+                                {uiText(
+                                    provider.isReportProvider
+                                        ? "Follow AI enhancement again"
+                                        : "Use for reports",
+                                )}
+                            </Button>
                             {!provider.isDefaultTranscription && (
                                 <Button
                                     onClick={() => onSetDefault(provider.id)}
