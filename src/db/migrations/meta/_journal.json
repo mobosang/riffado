@@ -288,6 +288,13 @@
       "when": 1793694754699,
       "tag": "0040_third_dreadnoughts",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1795498788857,
+      "tag": "0041_large_wolverine",
+      "breakpoints": true
     }
   ]
 }

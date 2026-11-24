@@ -83,7 +83,7 @@ describe("Plaud v4 compatibility", () => {
             if (url.includes("/file/simple/web")) return json(migrated);
             if (url.includes("/recordings/all")) {
                 const query = new URL(url).searchParams;
-                expect(query.get("sort_by")).toBe("updated");
+                expect(query.get("sort_by")).toBe("created");
                 expect(query.get("sort_order")).toBe("desc");
                 expect(query.get("page_size")).toBe("50");
                 return json({
@@ -102,7 +102,9 @@ describe("Plaud v4 compatibility", () => {
             "a",
             "b",
         ]);
-        expect(result.data_file_list[0]).toMatchObject({
+        expect(
+            await client.hydrateRecording(result.data_file_list[0]),
+        ).toMatchObject({
             filename: item("a").name,
             duration: 60000,
             start_time: 1700000000000,
@@ -112,11 +114,11 @@ describe("Plaud v4 compatibility", () => {
             is_summary: true,
         });
         const count = fetchMock.mock.calls.length;
-        expect(result.data_file_list[0].serial_number).toBeUndefined();
-        expect(result.data_file_list[0].file_md5).toBeUndefined();
-        expect(result.data_file_list[0].timezone).toBeUndefined();
-        expect(result.data_file_list[0].zonemins).toBeUndefined();
-        expect(result.data_file_list[0].scene).toBeUndefined();
+        expect(result.data_file_list[0].serial_number).toBe("");
+        expect(result.data_file_list[0].file_md5).toBe("");
+        expect(result.data_file_list[0].timezone).toBe(0);
+        expect(result.data_file_list[0].zonemins).toBe(0);
+        expect(result.data_file_list[0].scene).toBe(0);
         expect((await client.getRecordings(2, 2)).data_file_list).toEqual([]);
         expect(fetchMock).toHaveBeenCalledTimes(count);
         expect(
@@ -206,9 +208,11 @@ describe("Plaud v4 compatibility", () => {
                     },
                 }),
             );
-        expect(
-            (await new PlaudClient("test", base).getTempUrl("a")).temp_url,
-        ).toBe("https://media.example/refreshed");
+        fetchMock.mockResolvedValueOnce(new Response("audio"));
+        await new PlaudClient("test", base).downloadRecording("a");
+        expect(fetchMock.mock.calls[3]).toEqual([
+            "https://media.example/refreshed",
+        ]);
         expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({
             content_ids: ["content-a"],
         });
@@ -233,7 +237,7 @@ describe("Plaud v4 compatibility", () => {
                 json({ status: 0, data: { url_map: { "content-a": 42 } } }),
             );
         await expect(
-            new PlaudClient("test", base).getTempUrl("a"),
+            new PlaudClient("test", base).downloadRecording("a"),
         ).rejects.toThrow("invalid v4 response");
     });
 
@@ -255,7 +259,7 @@ describe("Plaud v4 compatibility", () => {
         fetchMock.mockResolvedValue(json(response));
         await expect(
             new PlaudClient("test", base).getRecordings(),
-        ).rejects.toThrow("invalid recording list");
+        ).rejects.toThrow("invalid recordings list");
     });
 
     it("rejects cursor loops instead of silently repeating recordings", async () => {
@@ -281,8 +285,10 @@ describe("Plaud v4 compatibility", () => {
             .mockResolvedValueOnce(
                 json({ status: 0, data: { meta: {}, objects: [] } }),
             );
+        const client = new PlaudClient("test", base);
+        const listed = await client.getRecordings(0, 1);
         await expect(
-            new PlaudClient("test", base).getRecordings(0, 1),
+            client.hydrateRecording(listed.data_file_list[0]),
         ).rejects.toThrow("invalid v4 response");
         expect(fetchMock).toHaveBeenCalledTimes(3);
     });

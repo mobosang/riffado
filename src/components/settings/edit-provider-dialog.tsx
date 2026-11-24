@@ -25,6 +25,7 @@ import {
     findPreset,
     getVisiblePresets,
     isLocalPreset,
+    supportsEnhancement,
 } from "@/lib/ai/provider-presets";
 import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
@@ -85,7 +86,10 @@ export function EditProviderDialog({
             setBaseUrl(provider.baseUrl || "");
             setDefaultModel(provider.defaultModel || "");
             setIsDefaultTranscription(provider.isDefaultTranscription);
-            setIsDefaultEnhancement(provider.isDefaultEnhancement);
+            setIsDefaultEnhancement(
+                supportsEnhancement(provider.provider) &&
+                    provider.isDefaultEnhancement,
+            );
             setApiKey("");
         } else if (!open) {
             setProviderName("");
@@ -231,7 +235,7 @@ export function EditProviderDialog({
                                         "isn't usable on the hosted app. We can't reach your machine. Delete this provider and re-add one with a public endpoint, or self-host Riffado (",
                                     )}
                                     <code className="font-mono">
-                                        docker compose up
+                                        {uiText("docker compose up")}
                                     </code>
                                     ).
                                 </span>
@@ -283,12 +287,14 @@ export function EditProviderDialog({
                         {isHosted && (
                             <p className="text-xs text-muted-foreground">
                                 {uiText("We can't reach")}{" "}
-                                <code className="font-mono">localhost</code>{" "}
+                                <code className="font-mono">
+                                    {uiText("localhost")}
+                                </code>{" "}
                                 {uiText(
                                     "or other private addresses from the hosted app. To use LM Studio or Ollama, self-host Riffado (",
                                 )}
                                 <code className="font-mono">
-                                    docker compose up
+                                    {uiText("docker compose up")}
                                 </code>
                                 ).
                             </p>
@@ -323,10 +329,19 @@ export function EditProviderDialog({
                                 onChange={(e) =>
                                     setIsDefaultEnhancement(e.target.checked)
                                 }
-                                disabled={isLoading}
+                                disabled={
+                                    isLoading ||
+                                    !supportsEnhancement(provider.provider)
+                                }
                             />
                             <span>{uiText("Use for AI enhancements")}</span>
                         </label>
+                        {!supportsEnhancement(provider.provider) && (
+                            <p className="text-xs text-muted-foreground pl-6">
+                                {provider.provider}
+                                {uiText("transcribes only.")}
+                            </p>
+                        )}
                     </Panel>
 
                     <div className="flex gap-2">

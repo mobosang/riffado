@@ -1,3 +1,5 @@
+import { usesDefaultPostgresPassword } from "./lib/postgres-password";
+
 type WebhookWorkerModule = {
     startWebhookWorker: () => void;
 };
@@ -14,10 +16,15 @@ type ExportWorkerModule = {
     startExportWorker: () => void;
 };
 
+type StatusRecorderModule = {
+    startStatusRecorder: () => void;
+};
+
 type EnvModule = {
     env: {
         IS_HOSTED: boolean;
         RATE_LIMIT_TRUST_PROXY_HEADERS?: boolean;
+        DATABASE_URL?: string;
     };
 };
 
@@ -59,6 +66,12 @@ export async function register() {
         );
     }
 
+    if (usesDefaultPostgresPassword(env.DATABASE_URL)) {
+        console.warn(
+            "[db] DATABASE_URL uses the known default password \"postgres\". Set a unique POSTGRES_PASSWORD in .env and rotate the role in place (ALTER USER postgres WITH PASSWORD '...'; then recreate the app). Recreating the db volume is not required.",
+        );
+    }
+
     const { startWebhookWorker } =
         require("./lib/webhooks/worker") as WebhookWorkerModule;
     startWebhookWorker();
@@ -74,6 +87,10 @@ export async function register() {
     const { startExportWorker } =
         require("./lib/export/worker") as ExportWorkerModule;
     startExportWorker();
+
+    const { startStatusRecorder } =
+        require("./lib/status/flush") as StatusRecorderModule;
+    startStatusRecorder();
 
     // Catch anything that escapes a background worker's own try/catch (or
     // any other unexpected process-level throw) instead of only ever
@@ -118,7 +135,7 @@ export async function register() {
  * error that escapes a Server Component, Route Handler, or Server Action
  * without being caught -- this is what closes the gap `apiHandler`-based
  * capture can't: routes that don't use `apiHandler` (better-auth, health,
- * the Rybbit proxy passthroughs, etc.) and React Server Component render
+ * the PostHog proxy passthroughs, etc.) and React Server Component render
  * errors. Hard-gated on IS_HOSTED inside `captureServerException` itself.
  */
 export async function onRequestError(

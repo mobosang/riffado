@@ -13,7 +13,9 @@ function safePlaudUrl(apiBase: string, path: string): URL {
     if (
         parsed.protocol !== "https:" ||
         (parsed.hostname !== "plaud.ai" &&
-            !parsed.hostname.endsWith(".plaud.ai"))
+            !parsed.hostname.endsWith(".plaud.ai") &&
+            parsed.hostname !== "plaud.cn" &&
+            !parsed.hostname.endsWith(".plaud.cn"))
     ) {
         throw new AppError(
             ErrorCode.PLAUD_INVALID_API_BASE,
@@ -43,6 +45,14 @@ export async function listPlaudWorkspaces(
     });
 
     if (!res.ok) {
+        if (res.status === 401) {
+            throw new AppError(
+                ErrorCode.PLAUD_INVALID_TOKEN,
+                "Plaud rejected the access token. Reconnect your Plaud account.",
+                401,
+                { plaudStatus: res.status },
+            );
+        }
         throw new AppError(
             res.status >= 500
                 ? ErrorCode.PLAUD_UPSTREAM_ERROR

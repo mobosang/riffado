@@ -1,7 +1,6 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +22,8 @@ interface ConnectorBridge {
     version: number;
     connect(): Promise<{
         accessToken: string;
+        /** Plaud refresh token (`pld_urt`). Omitted by older connector versions. */
+        refreshToken?: string;
         apiBase: string;
         region: "global" | "euc1" | "apse1" | "unknown";
         capturedAt: number;
@@ -40,15 +41,36 @@ type EmailStep = "email" | "code";
 
 const RESEND_COOLDOWN_MS = 30_000;
 const ISSUE_URL = "https://github.com/riffado/riffado/issues/65";
+const CONNECTOR_DURATION_NOTE =
+    "Riffado Connector 0.2.4 or newer keeps you connected for up to 30 days; older versions connect for about a day.";
 
-// One-liner the user pastes into the web.plaud.ai console. Reads
-// `pld_tokenstr` (the long-lived ~300-day user token, stored as a
-// JSON-encoded `"bearer eyJ…"` string) and copies the bare JWT to the
-// clipboard. This is the same localStorage key the connector reads, so it
-// deterministically yields the account token — never the short-lived 24h
-// workspace token that rides on /device/list. (issue #203)
-const TOKEN_GRAB_SNIPPET =
-    'copy(JSON.parse(localStorage.pld_tokenstr).replace(/^bearer /i,""))';
+async function toastConnectWarning(res: Response): Promise<void> {
+    const data = (await res.json().catch(() => null)) as {
+        warning?: unknown;
+    } | null;
+    if (typeof data?.warning === "string" && data.warning) {
+        toast.warning(data.warning, { duration: 15_000 });
+    }
+}
+
+function pasteGuideHosts(serverKey: PlaudServerKey): {
+    webHost: string;
+    webOrigin: string;
+    apiHint: string;
+} {
+    if (serverKey === "cn") {
+        return {
+            webHost: "web.plaud.cn",
+            webOrigin: "https://web.plaud.cn",
+            apiHint: "api*.plaud.cn",
+        };
+    }
+    return {
+        webHost: "web.plaud.ai",
+        webOrigin: "https://web.plaud.ai",
+        apiHint: "api*.plaud.ai",
+    };
+}
 
 interface PlaudConnectTabsProps {
     onConnected: () => void;
@@ -119,13 +141,14 @@ export function PlaudConnectTabs({ onConnected }: PlaudConnectTabsProps) {
             {mode === "email" && (
                 <EmailCodePane
                     onConnected={onConnected}
-                    onSwitchToToken={() => setMode("token")}
+                    onUseConnector={() => setMode("connector")}
                 />
             )}
             {mode === "token" && (
                 <PasteTokenPane
                     onConnected={onConnected}
                     onUseConnector={() => setMode("connector")}
+                    onUseEmail={() => setMode("email")}
                 />
             )}
         </div>
@@ -163,6 +186,10 @@ function ConnectorPane({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     accessToken: payload.accessToken,
+                    ...(typeof payload.refreshToken === "string" &&
+                    payload.refreshToken
+                        ? { refreshToken: payload.refreshToken }
+                        : {}),
                     apiBase: payload.apiBase,
                     source: "connector",
                 }),
@@ -178,7 +205,8 @@ function ConnectorPane({
                 );
                 return;
             }
-            toast.success(uiText("Plaud account connected"));
+            toast.success("Plaud account connected");
+            await toastConnectWarning(res);
             onConnected();
         } catch (err) {
             toast.error(
@@ -200,10 +228,15 @@ function ConnectorPane({
             <div className="space-y-3">
                 <p className="text-sm text-muted-foreground leading-relaxed">
                     {uiText("Easiest path: install the")}{" "}
-                    <span className="font-medium">Riffado Connector</span>{" "}
+                    <span className="font-medium">
+                        {uiText("Riffado Connector")}
+                    </span>{" "}
                     {uiText(
                         "browser extension. Sign in to Plaud the way you normally do (Google, Apple, or email) and the connector hands the session back here, no copy-pasting.",
                     )}
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                    {uiText(CONNECTOR_DURATION_NOTE)}
                 </p>
                 <Button asChild className="w-full">
                     <a
@@ -245,6 +278,7 @@ function ConnectorPane({
                 {uiText(
                     "Click below to sign in to Plaud in a new tab. Use Google, Apple, or email/password as you normally would. The connector will return you here automatically.",
                 )}
+                {uiText(CONNECTOR_DURATION_NOTE)}
             </p>
             <Button
                 onClick={handleConnect}
@@ -282,18 +316,20 @@ function ConnectorPane({
 
 interface EmailCodePaneProps {
     onConnected: () => void;
-    onSwitchToToken: () => void;
+    onUseConnector: () => void;
 }
 
-function EmailCodePane({ onConnected, onSwitchToToken }: EmailCodePaneProps) {
+function EmailCodePane({ onConnected, onUseConnector }: EmailCodePaneProps) {
     const uiText = useUiText();
-    function regionLabel(base: string): string {
-        if (base.includes("euc1")) return uiText("EU (Frankfurt)");
-        if (base.includes("apse1")) return uiText("Asia Pacific (Singapore)");
-        if (base.includes("api.plaud.ai")) return uiText("Global");
-        return base;
+    function regionLabel(base: string) {
+        return base.includes("euc1")
+            ? uiText("EU (Frankfurt)")
+            : base.includes("apse1")
+              ? uiText("Asia Pacific (Singapore)")
+              : base.includes("plaud.cn")
+                ? uiText("China Mainland")
+                : uiText("Global");
     }
-
     const [step, setStep] = useState<EmailStep>("email");
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
@@ -448,10 +484,10 @@ function EmailCodePane({ onConnected, onSwitchToToken }: EmailCodePaneProps) {
                     )}{" "}
                     <button
                         type="button"
-                        onClick={onSwitchToToken}
+                        onClick={onUseConnector}
                         className="underline decoration-dotted underline-offset-2 hover:text-muted-foreground transition-colors"
                     >
-                        {uiText("Use the paste-token method instead.")}
+                        {uiText("Use Sign in with Plaud instead.")}
                     </button>{" "}
                     <a
                         href={ISSUE_URL}
@@ -459,7 +495,7 @@ function EmailCodePane({ onConnected, onSwitchToToken }: EmailCodePaneProps) {
                         rel="noopener noreferrer"
                         className="underline decoration-dotted underline-offset-2 hover:text-muted-foreground transition-colors"
                     >
-                        #65&nbsp;→
+                        {uiText("#65 →")}
                     </a>
                 </p>
             </div>
@@ -533,81 +569,18 @@ function EmailCodePane({ onConnected, onSwitchToToken }: EmailCodePaneProps) {
 
 // \u2500\u2500 Paste token pane \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
-// Console-styled copy block for the token-grab snippet. Distinct from
-// `CopyableCommand` (which renders shell chrome) so the user reads it as
-// "paste into your browser console," not "run in a terminal."
-function ConsoleSnippet({
-    snippet,
-    ariaLabel,
-}: {
-    snippet: string;
-    ariaLabel?: string;
-}) {
-    const uiText = useUiText();
-
-    const [copied, setCopied] = useState(false);
-    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    useEffect(
-        () => () => {
-            if (timerRef.current !== null) clearTimeout(timerRef.current);
-        },
-        [],
-    );
-    const handleCopy = useCallback(async () => {
-        try {
-            await navigator.clipboard.writeText(snippet);
-            setCopied(true);
-            if (timerRef.current !== null) clearTimeout(timerRef.current);
-            timerRef.current = setTimeout(() => {
-                setCopied(false);
-                timerRef.current = null;
-            }, 1600);
-        } catch {
-            // Clipboard can reject in insecure contexts; text stays selectable.
-        }
-    }, [snippet]);
-    return (
-        <div className="rounded-md border border-input bg-muted/40 overflow-hidden">
-            <div className="flex items-center px-3 py-1.5 border-b border-input/60 bg-muted">
-                <span className="text-[11px] font-mono text-muted-foreground">
-                    {uiText("web.plaud.ai console")}
-                </span>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 font-mono text-xs">
-                <code className="flex-1 overflow-x-auto whitespace-nowrap text-foreground">
-                    {snippet}
-                </code>
-                <button
-                    type="button"
-                    onClick={handleCopy}
-                    aria-label={ariaLabel ?? uiText("Copy snippet")}
-                    className="shrink-0 inline-flex items-center gap-1 rounded border border-input bg-background px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                    {copied ? (
-                        <>
-                            <Check className="size-3 text-green-600" />
-                            <span>{uiText("Copied")}</span>
-                        </>
-                    ) : (
-                        <>
-                            <Copy className="size-3" />
-                            <span>{uiText("Copy")}</span>
-                        </>
-                    )}
-                </button>
-            </div>
-        </div>
-    );
-}
-
 interface PasteTokenPaneProps {
     onConnected: () => void;
     onUseConnector: () => void;
+    onUseEmail: () => void;
 }
 
-function PasteTokenPane({ onConnected, onUseConnector }: PasteTokenPaneProps) {
+function PasteTokenPane({
+    onConnected,
+    onUseConnector,
+    onUseEmail,
+}: PasteTokenPaneProps) {
     const uiText = useUiText();
-
     const [token, setToken] = useState("");
     const [serverKey, setServerKey] =
         useState<PlaudServerKey>(DEFAULT_SERVER_KEY);
@@ -618,6 +591,8 @@ function PasteTokenPane({ onConnected, onUseConnector }: PasteTokenPaneProps) {
         serverKey === "custom"
             ? customApiBase.trim()
             : PLAUD_SERVERS[serverKey].apiBase;
+    const { webHost, webOrigin, apiHint } = pasteGuideHosts(serverKey);
+    const isChina = serverKey === "cn";
 
     const handleSubmit = useCallback(async () => {
         const trimmed = token.trim().replace(/^Bearer\s+/i, "");
@@ -651,7 +626,8 @@ function PasteTokenPane({ onConnected, onUseConnector }: PasteTokenPaneProps) {
                 );
                 return;
             }
-            toast.success(uiText("Plaud account connected"));
+            toast.success("Plaud account connected");
+            await toastConnectWarning(res);
             onConnected();
         } catch (err) {
             toast.error(
@@ -670,27 +646,50 @@ function PasteTokenPane({ onConnected, onUseConnector }: PasteTokenPaneProps) {
 
     return (
         <div className="space-y-4">
-            <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5 space-y-1">
-                <p className="text-xs font-medium text-foreground">
-                    {uiText("Recommended: use the connector instead")}
-                </p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                    {uiText(
-                        "The Riffado Connector signs you in and captures the right long-lived token automatically — no copying, and it won't stop working after a day.",
-                    )}{" "}
-                    <button
-                        type="button"
-                        onClick={onUseConnector}
-                        className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors"
-                    >
-                        {uiText("Use the connector →")}
-                    </button>
-                </p>
-            </div>
+            {!isChina && (
+                <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5 space-y-1">
+                    <p className="text-xs font-medium text-foreground">
+                        {uiText(
+                            "Recommended: use Sign in with Plaud or the email code",
+                        )}
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                        {uiText(
+                            "A token copied from the Plaud web app lasts about a day.",
+                        )}{" "}
+                        {uiText(CONNECTOR_DURATION_NOTE)}
+                        {uiText(
+                            "The email code lasts 30 days, but only for Plaud accounts that sign in with email and password. Google and Apple accounts can't use it.",
+                        )}{" "}
+                        <button
+                            type="button"
+                            onClick={onUseConnector}
+                            className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors"
+                        >
+                            {uiText("Sign in with Plaud")}
+                        </button>{" "}
+                        {uiText("or")}{" "}
+                        <button
+                            type="button"
+                            onClick={onUseEmail}
+                            className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors"
+                        >
+                            {uiText("use the email code")}
+                        </button>
+                        .
+                    </p>
+                </div>
+            )}
             <p className="text-xs text-muted-foreground leading-relaxed">
-                {uiText(
-                    "Prefer to paste manually? Grab your account token from a logged-in web.plaud.ai session.",
-                )}{" "}
+                {isChina
+                    ? uiText(
+                          "Copy the token from a logged-in {host} session.",
+                          { host: webHost },
+                      )
+                    : uiText(
+                          "Still want to paste? Copy the token from a logged-in {host} session.",
+                          { host: webHost },
+                      )}{" "}
                 <a
                     href={ISSUE_URL}
                     target="_blank"
@@ -732,7 +731,7 @@ function PasteTokenPane({ onConnected, onUseConnector }: PasteTokenPaneProps) {
                 )}
                 <p className="text-xs text-muted-foreground">
                     {uiText("Look at the host of any")}{" "}
-                    <span className="font-mono">api*.plaud.ai</span>{" "}
+                    <span className="font-mono">{apiHint}</span>
                     {uiText(
                         "request in your devtools Network tab to find the region.",
                     )}
@@ -771,116 +770,74 @@ function PasteTokenPane({ onConnected, onUseConnector }: PasteTokenPaneProps) {
                 <summary className="text-xs text-muted-foreground/80 cursor-pointer hover:text-muted-foreground transition-colors select-none">
                     {uiText("How do I get my token?")}
                 </summary>
-                <div className="mt-3 space-y-4 text-xs text-muted-foreground leading-relaxed">
-                    <div className="space-y-1">
-                        <p className="font-medium text-foreground">
-                            {uiText("Easiest — the connector")}
-                        </p>
-                        <p>
-                            {uiText("Skip the copying entirely.")}{" "}
-                            <button
-                                type="button"
-                                onClick={onUseConnector}
-                                className="underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors"
+                <div className="mt-3 space-y-3 text-xs text-muted-foreground leading-relaxed">
+                    <ol className="ml-4 list-decimal space-y-1">
+                        <li>
+                            {uiText("Open")}{" "}
+                            <a
+                                href={webOrigin}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline decoration-dotted underline-offset-2"
                             >
-                                {uiText("Use the Riffado Connector")}
-                            </button>{" "}
-                            {uiText("and it captures the right token for you.")}
-                        </p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <p className="font-medium text-foreground">
-                            {uiText("Fast — paste a one-line snippet")}
-                        </p>
-                        <ol className="ml-4 list-decimal space-y-1">
-                            <li>
-                                {uiText("Open")}{" "}
-                                <a
-                                    href="https://web.plaud.ai"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="underline decoration-dotted underline-offset-2"
-                                >
-                                    web.plaud.ai
-                                </a>{" "}
-                                {uiText(
-                                    "and sign in (Google, Apple, or email).",
-                                )}
-                            </li>
-                            <li>
-                                {uiText("Open the browser console (F12 →")}{" "}
-                                <span className="font-medium">
-                                    {uiText("Console")}
-                                </span>
-                                ).
-                            </li>
-                            <li>
-                                {uiText(
-                                    "Paste this and press Enter — it copies your token to the clipboard:",
-                                )}
-                            </li>
-                        </ol>
-                        <ConsoleSnippet
-                            snippet={TOKEN_GRAB_SNIPPET}
-                            ariaLabel={uiText("Copy the token-grab snippet")}
-                        />
+                                {webHost}
+                            </a>{" "}
+                            {uiText("and sign in (Google, Apple, or email).")}
+                        </li>
+                        <li>
+                            {uiText("Open DevTools (F12) →")}{" "}
+                            <span className="font-medium">
+                                {uiText("Application")}
+                            </span>{" "}
+                            →{" "}
+                            <span className="font-medium">
+                                {uiText("Cookies")}
+                            </span>{" "}
+                            → <span className="font-mono">{webOrigin}</span>.
+                        </li>
+                        <li>
+                            {uiText("Copy the value of")}{" "}
+                            <span className="font-mono">
+                                {uiText("pld_ut")}
+                            </span>
+                            {uiText("(it starts with")}
+                            <span className="font-mono">{uiText("eyJ")}</span>
+                            {uiText(
+                                ") and paste it above. Pick the region matching the",
+                            )}{" "}
+                            <span className="font-mono">{apiHint}</span>
+                            {uiText("host you see in the Network tab.")}
+                        </li>
+                    </ol>
+                    {isChina ? (
                         <p>
                             {uiText(
-                                "Then paste it into the box above. If the console shows a “don't paste here” warning, use the manual steps below.",
+                                "The Riffado Connector doesn't cover China (plaud.cn) accounts, so paste a token from",
+                            )}
+                            {webHost}
+                            {uiText(
+                                "instead. These steps match web.plaud.ai. They haven't been verified for China accounts, so the cookie name and how long the token lasts may differ on",
+                            )}
+                            {webHost}.
+                        </p>
+                    ) : (
+                        <p>
+                            {uiText(
+                                "This token lasts 24 hours. After that, syncing stops until you reconnect.",
                             )}
                         </p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <p className="font-medium text-foreground">
-                            {uiText("Manual — from storage")}
-                        </p>
-                        <ol className="ml-4 list-decimal space-y-1">
-                            <li>
-                                {uiText(
-                                    "On web.plaud.ai, open devtools (F12) →",
-                                )}{" "}
-                                <span className="font-medium">
-                                    {uiText("Application")}
-                                </span>{" "}
-                                →{" "}
-                                <span className="font-medium">
-                                    {uiText("Local Storage")}
-                                </span>{" "}
-                                →{" "}
-                                <span className="font-mono">
-                                    https://web.plaud.ai
-                                </span>
-                                .
-                            </li>
-                            <li>
-                                {uiText("Find")}{" "}
-                                <span className="font-mono">pld_tokenstr</span>
-                                {uiText(
-                                    ". Copy its value, then strip the wrapping quotes and the leading",
-                                )}{" "}
-                                <span className="font-mono">bearer&nbsp;</span>.
-                            </li>
-                            <li>
-                                {uiText("Paste the remaining")}{" "}
-                                <span className="font-mono">eyJ…</span>{" "}
-                                {uiText(
-                                    "token above, and pick the region matching the",
-                                )}{" "}
-                                <span className="font-mono">api*.plaud.ai</span>{" "}
-                                {uiText("host you see in the Network tab.")}
-                            </li>
-                        </ol>
-                    </div>
-
+                    )}
                     <p className="text-muted-foreground/80">
                         {uiText("Don't copy the Authorization header from a")}{" "}
-                        <span className="font-mono">/device/list</span>{" "}
+                        <span className="font-mono">
+                            {uiText("/device/list")}
+                        </span>{" "}
                         {uiText("or")}{" "}
-                        <span className="font-mono">/file/simple/web</span>{" "}
+                        <span className="font-mono">
+                            {uiText("/file/simple/web")}
+                        </span>{" "}
                         {uiText(
-                            "request — that's a short-lived 24-hour token that stops working within a day. Your account token lives ~300 days and is encrypted (AES-256-GCM) before storage on this instance.",
+                            "request. That's a workspace token Riffado can't use. Tokens are encrypted (AES-256-GCM) before storage on this instance.",
                         )}
                     </p>
                 </div>

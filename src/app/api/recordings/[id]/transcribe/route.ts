@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth-server";
 import { AppError, apiHandler, ErrorCode } from "@/lib/errors";
+import { noteAutoTranscribeOutcome } from "@/lib/sync/auto-transcribe-state";
 import {
     type TranscribeErrorCode,
     transcribeRecording,
@@ -46,6 +47,7 @@ export const POST = apiHandler<IdContext>(async (request, context) => {
     if (!result.success) {
         throw mapErrorCodeToAppError(result.errorCode, result.error);
     }
+    noteAutoTranscribeOutcome(session.user.id, id, true);
 
     return NextResponse.json({
         transcription: result.text ?? "",
@@ -69,6 +71,8 @@ function mapErrorCodeToAppError(
             return new AppError(ErrorCode.ACCOUNT_LOCKED, msg, 403);
         case "MYNAH_BUDGET_EXHAUSTED":
             return new AppError(ErrorCode.MYNAH_BUDGET_EXHAUSTED, msg, 402);
+        case "FILE_TOO_LARGE":
+            return new AppError(ErrorCode.FILE_TOO_LARGE, msg, 413);
         default:
             return new AppError(ErrorCode.TRANSCRIPTION_FAILED, msg, 500);
     }

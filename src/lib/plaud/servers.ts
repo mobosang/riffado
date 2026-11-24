@@ -19,6 +19,12 @@ export const PLAUD_SERVERS = {
             "Asia Pacific server — used by APAC accounts (api-apse1.plaud.ai)",
         apiBase: "https://api-apse1.plaud.ai",
     },
+    cn: {
+        label: "China Mainland (api.plaud.cn)",
+        description:
+            "China mainland server — used by accounts registered on web.plaud.cn / app.plaud.cn (api.plaud.cn)",
+        apiBase: "https://api.plaud.cn",
+    },
     custom: {
         label: "Custom",
         description:
@@ -30,15 +36,50 @@ export const PLAUD_SERVERS = {
 export type PlaudServerKey = keyof typeof PLAUD_SERVERS;
 export const DEFAULT_SERVER_KEY: PlaudServerKey = "global";
 
-/** HTTPS + plaud.ai-subdomain check. */
+/**
+ * HTTPS + Plaud-domain check.
+ *
+ * Accepts both `plaud.ai` (global / EU / APAC) and `plaud.cn` (China
+ * mainland). Plaud runs a region-separated China deployment on
+ * `api.plaud.cn` / `web.plaud.cn`; accounts registered there do not exist
+ * on the `.ai` side at all, so a `.cn` account cannot connect unless this
+ * gate admits the domain. The `.cn` deployment is the same backend --
+ * `POST /auth/otp-send-code` returns a byte-identical pydantic validation
+ * envelope on both hosts -- so no other code path needs to branch on region.
+ */
 export function isValidPlaudApiUrl(url: string): boolean {
     try {
         const parsed = new URL(url);
+        if (parsed.protocol !== "https:") return false;
+        const host = parsed.hostname;
         return (
-            parsed.protocol === "https:" &&
-            (parsed.hostname === "plaud.ai" ||
-                parsed.hostname.endsWith(".plaud.ai"))
+            host === "plaud.ai" ||
+            host.endsWith(".plaud.ai") ||
+            host === "plaud.cn" ||
+            host.endsWith(".plaud.cn")
         );
+    } catch {
+        return false;
+    }
+}
+
+const KNOWN_API_HOSTS = new Set(
+    Object.values(PLAUD_SERVERS).flatMap((server) =>
+        server.apiBase ? [new URL(server.apiBase).hostname] : [],
+    ),
+);
+
+const REGIONAL_API_HOST_RE = /^api-[a-z0-9-]+\.plaud\.(ai|cn)$/;
+
+/**
+ * True when `url` targets a Plaud API server: one of `PLAUD_SERVERS` or a
+ * regional `api-<region>.plaud.ai` / `.plaud.cn` host. Presigned storage
+ * and resource hosts are not API hosts.
+ */
+export function isPlaudApiHost(url: string): boolean {
+    try {
+        const host = new URL(url).hostname.toLowerCase();
+        return KNOWN_API_HOSTS.has(host) || REGIONAL_API_HOST_RE.test(host);
     } catch {
         return false;
     }

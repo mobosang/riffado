@@ -20,7 +20,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { findPreset, getVisiblePresets } from "@/lib/ai/provider-presets";
+import {
+    findPreset,
+    getVisiblePresets,
+    supportsEnhancement,
+} from "@/lib/ai/provider-presets";
 import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
@@ -59,6 +63,9 @@ export function AddProviderDialog({
         if (preset) {
             setBaseUrl(preset.baseUrl);
             setDefaultModel(preset.defaultModel);
+        }
+        if (!supportsEnhancement(value)) {
+            setIsDefaultEnhancement(false);
         }
     };
 
@@ -182,12 +189,14 @@ export function AddProviderDialog({
                         {isHosted && (
                             <p className="text-xs text-muted-foreground">
                                 {uiText("We can't reach")}{" "}
-                                <code className="font-mono">localhost</code>{" "}
+                                <code className="font-mono">
+                                    {uiText("localhost")}
+                                </code>{" "}
                                 {uiText(
                                     "or other private addresses from the hosted app. To use LM Studio or Ollama, self-host Riffado (",
                                 )}
                                 <code className="font-mono">
-                                    docker compose up
+                                    {uiText("docker compose up")}
                                 </code>
                                 ).
                             </p>
@@ -222,10 +231,18 @@ export function AddProviderDialog({
                                 onChange={(e) =>
                                     setIsDefaultEnhancement(e.target.checked)
                                 }
-                                disabled={isLoading}
+                                disabled={
+                                    isLoading || !supportsEnhancement(provider)
+                                }
                             />
                             <span>{uiText("Use for AI enhancements")}</span>
                         </label>
+                        {provider && !supportsEnhancement(provider) && (
+                            <p className="text-xs text-muted-foreground pl-6">
+                                {provider}
+                                {uiText("transcribes only.")}
+                            </p>
+                        )}
                     </Panel>
 
                     <div className="flex gap-2">

@@ -9,13 +9,15 @@ import { EditProviderDialog } from "@/components/settings/edit-provider-dialog";
 import { SettingsSectionHeader } from "@/components/settings/section-header";
 import { PromptManager } from "@/components/settings-sections/prompt-manager";
 import { Button } from "@/components/ui/button";
+import { supportsEnhancement } from "@/lib/ai/provider-presets";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
 
 type AISubSection = "providers" | "prompts";
 
-interface Provider {
+/** A row in the AI Providers list, as returned by `/api/settings/ai/providers`. */
+export interface Provider {
     id: string;
     provider: string;
     baseUrl: string | null;
@@ -29,10 +31,15 @@ interface Provider {
     available?: boolean;
 }
 
-const EMPTY_PROVIDERS: Provider[] = [];
-
 interface ProvidersSectionProps {
-    initialProviders?: Provider[];
+    /** The provider list, or null while it is still loading. */
+    providers: Provider[] | null;
+    /** Receives the list re-read from the server after an add, edit, delete or default change. */
+    onProvidersChange: (providers: Provider[]) => void;
+    /** True when the list could not be loaded; shows an error with `onRetry`. */
+    loadFailed?: boolean;
+    /** Retries loading the list after `loadFailed`. */
+    onRetry?: () => void;
     isHosted?: boolean;
 }
 
@@ -41,24 +48,23 @@ interface ProvidersSectionProps {
  *
  * Two tabs:
  *  - "Providers": the configured AI providers (transcription / enhancement)
- *    plus the AddProviderDialog and EditProviderDialog. Local state seeded
- *    from `initialProviders` and updated in place by the dialogs.
+ *    plus the AddProviderDialog and EditProviderDialog.
  *  - "Prompts": delegated entirely to <PromptManager />, which owns its own
  *    settings round-trip + custom prompt CRUD.
  *
- * Note: `initialProviders` is the server-rendered seed only. The local
- * `providers` state diverges from it after add/edit/delete actions; we do
- * NOT re-sync from the prop on changes (would clobber local edits). If the
- * parent ever needs to force a reset, pass a `key` prop instead.
+ * The parent owns the provider list. After a change the section re-reads
+ * the list and hands it back through `onProvidersChange`.
  */
 export function ProvidersSection({
-    initialProviders = EMPTY_PROVIDERS,
+    providers,
+    onProvidersChange,
+    loadFailed = false,
+    onRetry,
     isHosted = false,
 }: ProvidersSectionProps) {
     const uiText = useUiText();
 
     const confirm = useConfirm();
-    const [providers, setProviders] = useState<Provider[]>(initialProviders);
     const [isAddProviderOpen, setIsAddProviderOpen] = useState(false);
     const [isEditProviderOpen, setIsEditProviderOpen] = useState(false);
     const [editingProvider, setEditingProvider] = useState<Provider | null>(
@@ -72,7 +78,7 @@ export function ProvidersSection({
             const response = await fetch("/api/settings/ai/providers");
             if (!response.ok) throw new Error("Failed to fetch");
             const data = (await response.json()) as { providers: Provider[] };
-            setProviders(data.providers);
+            onProvidersChange(data.providers);
         } catch {
             toast.error(uiText("Failed to refresh providers"));
         }
@@ -133,12 +139,7 @@ export function ProvidersSection({
                         uiText.locale,
                     ),
                 );
-            setProviders((rows) =>
-                rows.map((row) => ({
-                    ...row,
-                    isReportProvider: row.id === reportProviderId,
-                })),
-            );
+            await refreshProviders();
         } catch (error) {
             toast.error(
                 error instanceof Error
@@ -153,7 +154,7 @@ export function ProvidersSection({
     const handleDelete = (id: string) => {
         void confirm({
             title: uiText("Delete this provider?"),
-            description: providers.some(
+            description: providers?.some(
                 (p) => p.id === id && p.isReportProvider,
             )
                 ? uiText(
@@ -236,7 +237,28 @@ export function ProvidersSection({
                     </button>
                 </div>
 
-                {aiSubSection === "providers" && (
+                {aiSubSection === "providers" &&
+                    providers === null &&
+                    (loadFailed ? (
+                        <div className="rounded-lg border p-4 text-sm">
+                            <p className="mb-3 text-muted-foreground">
+                                {uiText("Couldn't load your AI providers.")}
+                            </p>
+                            {onRetry && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={onRetry}
+                                >
+                                    {uiText("Try again")}
+                                </Button>
+                            )}
+                        </div>
+                    ) : (
+                        <ProvidersListSkeleton />
+                    ))}
+
+                {aiSubSection === "providers" && providers !== null && (
                     <ProvidersList
                         providers={providers}
                         deletingId={deletingId}
@@ -279,6 +301,17 @@ export function ProvidersSection({
                 }}
             />
         </>
+    );
+}
+
+function ProvidersListSkeleton() {
+    const uiText = useUiText();
+    return (
+        <div className="space-y-3" aria-busy="true">
+            <span className="sr-only">{uiText("Loading providers")}</span>
+            <div className="h-[74px] animate-pulse rounded-lg border bg-muted/40" />
+            <div className="h-[74px] animate-pulse rounded-lg border bg-muted/40" />
+        </div>
     );
 }
 
@@ -418,7 +451,11 @@ function ProvidersList({
                         </div>
                         <div className="flex items-center gap-2 ml-4">
                             <Button
-                                disabled={savingReport}
+                                disabled={
+                                    savingReport ||
+                                    (!provider.isReportProvider &&
+                                        !supportsEnhancement(provider.provider))
+                                }
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>

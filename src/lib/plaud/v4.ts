@@ -1,151 +1,263 @@
-import { z } from "zod";
-import { AppError, ErrorCode } from "@/lib/errors";
-import type { PlaudFileDetailResponse, PlaudRecording } from "@/types/plaud";
+import type {
+    PlaudContentItem,
+    PlaudFileDetailResponse,
+    PlaudRecording,
+    PlaudV4FileDetailResponse,
+    PlaudV4FileObject,
+    PlaudV4RecordingItem,
+} from "@/types/plaud";
 
-const nonnegative = z.number().finite().nonnegative();
-const objectSchema = z.object({
-    object_id: z.string().optional(),
-    object_type: z.string(),
-    content_url: z.string().nullable().optional(),
-    content_id: z.string().nullable().optional(),
-    task_status: z.number().nullable().optional(),
-    safe_scan_status: z.number().optional(),
-    version_ms: nonnegative.optional(),
-});
-const itemSchema = z.object({
-    file_id: z.string().min(1),
-    name: z.string(),
-    duration_ms: nonnegative.optional(),
-    created_at_show_ms: nonnegative.optional(),
-    updated_at_show_ms: nonnegative.optional(),
-    version_ms: nonnegative.optional(),
-});
-export const v4ListSchema = z.object({
-    data: z.object({
-        items: z.array(itemSchema),
-        next_cursor: z.string().nullable().optional(),
-    }),
-});
-export const v4ContentUrlsSchema = z.object({
-    data: z.object({ url_map: z.record(z.string(), z.string().min(1)) }),
-});
-export const v4DetailSchema = z.object({
-    data: z.object({
-        meta: z.object({
-            file_id: z.string().min(1),
-            duration: nonnegative,
-            size_bytes: nonnegative,
-            start_time: nonnegative,
-            version_ms: nonnegative,
-            timezone: z.number().optional(),
-        }),
-        node: z
-            .object({
-                node_id: z.string(),
-                name: z.string(),
-                version_ms: nonnegative.optional(),
-            })
-            .optional(),
-        objects: z.array(objectSchema),
-    }),
-});
-export type V4Item = z.infer<typeof itemSchema>;
-export type V4Detail = z.infer<typeof v4DetailSchema>["data"];
+/**
+ * Status Plaud returns (HTTP 200, no payload) from every legacy `/file/...`
+ * endpoint once an account is migrated to Plaud 4.0:
+ * `{ "status": -1800907, "msg": "Account migrated to 4.0. Please update and reinitialize." }`.
+ */
+export const PLAUD_V4_MIGRATED_STATUS = -1800907;
 
-/** Reject malformed upstream responses without logging private response bodies. */
-export function parseV4<T>(schema: z.ZodType<T>, body: unknown): T {
-    const parsed = schema.safeParse(body);
-    if (!parsed.success)
-        throw new AppError(
-            ErrorCode.PLAUD_UPSTREAM_ERROR,
-            "Plaud returned an invalid v4 response.",
-            502,
-        );
-    return parsed.data;
+/** `/file-app/v4/nodes/rename` with a stale `origin_version`. */
+export const PLAUD_V4_VERSION_CONFLICT_STATUS = -1800313;
+
+type PlaudV4FileDetail = NonNullable<PlaudV4FileDetailResponse["data"]>;
+
+/** True for the "Account migrated to 4.0" envelope. */
+export function isPlaudV4MigratedResponse(body: unknown): boolean {
+    if (!body || typeof body !== "object") return false;
+    const { status, msg } = body as { status?: unknown; msg?: unknown };
+    if (status === PLAUD_V4_MIGRATED_STATUS) return true;
+    return typeof msg === "string" && /migrated to 4\.0/i.test(msg);
 }
 
-/** Match the official client's safety filter and completed-content selection. */
-export function usableV4Object(object: V4Detail["objects"][number]): boolean {
-    return (
-        object.safe_scan_status !== 2 &&
-        object.safe_scan_status !== 3 &&
-        object.task_status !== 0 &&
-        Boolean(object.content_url)
-    );
+/**
+ * Riffado recording id for a v4 file id. v4 exposes pre-migration files as
+ * `of_<legacy id>`: stripping the prefix keeps existing rows matched. New
+ * files (`f_...`) keep their v4 id.
+ */
+export function plaudV4FileIdToRecordingId(fileId: string): string {
+    return fileId.startsWith("of_") ? fileId.slice(3) : fileId;
 }
 
-/** Adapt v4 metadata to the existing sync model; timestamps and durations are milliseconds. */
-export function v4Recording(item: V4Item, detail: V4Detail): PlaudRecording {
-    if (item.file_id !== detail.meta.file_id)
-        throw new AppError(
-            ErrorCode.PLAUD_UPSTREAM_ERROR,
-            "Plaud returned mismatched file metadata.",
-            502,
+/** Inverse of `plaudV4FileIdToRecordingId`. */
+export function recordingIdToPlaudV4FileId(id: string): string {
+    if (id.startsWith("f_") || id.startsWith("of_")) return id;
+    return `of_${id}`;
+}
+
+/** UTC offset in minutes of an IANA zone at a given instant. */
+export function timeZoneOffsetMinutes(
+    timeZone: string | null | undefined,
+    atMs: number,
+): number | undefined {
+    if (!timeZone) return undefined;
+    try {
+        const dtf = new Intl.DateTimeFormat("en-US", {
+            timeZone,
+            hourCycle: "h23",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+        });
+        const parts: Record<string, string> = {};
+        for (const p of dtf.formatToParts(new Date(atMs))) {
+            parts[p.type] = p.value;
+        }
+        const asUtc = Date.UTC(
+            Number(parts.year),
+            Number(parts.month) - 1,
+            Number(parts.day),
+            Number(parts.hour),
+            Number(parts.minute),
+            Number(parts.second),
         );
-    const meta = detail.meta;
-    const duration = item.duration_ms ?? meta.duration;
-    const version = Math.max(
-        meta.version_ms,
-        detail.node?.version_ms ?? 0,
-        item.version_ms ?? 0,
-        item.updated_at_show_ms ?? 0,
-        ...detail.objects.map((object) => object.version_ms ?? 0),
-    );
+        const offset = Math.round(
+            (asUtc - Math.floor(atMs / 1000) * 1000) / 60000,
+        );
+        return Number.isFinite(offset) ? offset : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * Map a `/file-app/v4/recordings/all` item onto the legacy recording shape.
+ * Device serial, size, md5 and content flags are absent from the listing:
+ * `applyPlaudV4Detail` fills them from the file detail.
+ */
+export function mapPlaudV4Item(item: PlaudV4RecordingItem): PlaudRecording {
+    const start = item.created_at_show_ms ?? 0;
+    const duration = item.duration_ms ?? 0;
+    const version = item.version_ms ?? item.updated_at_show_ms ?? start;
     return {
-        id: item.file_id,
-        filename: item.name,
-        duration,
-        start_time: meta.start_time,
-        end_time: meta.start_time + duration,
-        version_ms: version,
-        version: version,
-        edit_time: version,
-        filesize: meta.size_bytes,
-        filetype: "",
-        fullname: item.name,
-        ori_ready: detail.objects.some(
-            (object) =>
-                object.object_type === "AUDIO" && usableV4Object(object),
-        ),
+        id: plaudV4FileIdToRecordingId(item.file_id),
+        filename: item.name ?? "",
         keywords: [],
+        filesize: 0,
+        filetype: "",
+        fullname: "",
+        file_md5: "",
+        ori_ready: true,
+        version: version,
+        version_ms: version,
+        edit_time: Math.max(item.updated_at_show_ms ?? 0, version),
         edit_from: "",
         is_trash: false,
-        timezone: meta.timezone,
+        start_time: start,
+        end_time: start + duration,
+        duration,
+        timezone: 0,
+        zonemins: 0,
+        scene: 0,
         filetag_id_list: [],
-        is_trans: detail.objects.some(
-            (object) =>
-                object.object_type === "TRANSCRIPT" && usableV4Object(object),
-        ),
-        is_summary: detail.objects.some(
-            (object) =>
-                object.object_type === "SUMMARY" && usableV4Object(object),
-        ),
+        serial_number: "",
+        is_trans: false,
+        is_summary: false,
+        source: "v4",
     };
 }
 
-/** Preserve raw transcripts and primary summaries without substituting polished text. */
-export function v4Content(detail: V4Detail): PlaudFileDetailResponse {
-    const types: Record<string, string> = {
-        TRANSCRIPT: "transaction",
-        SUMMARY: "auto_sum_note",
-        OUTLINE: "outline",
-        POLISHED_TRANSCRIPT: "transaction_polish",
+/**
+ * Order v4 listings like the legacy `sort_by` / `is_desc` parameters.
+ * `recordings/all` only sorts by creation, but sync expects most recently
+ * edited first (it stops after unchanged pages).
+ */
+export function sortPlaudRecordings(
+    recordings: PlaudRecording[],
+    sortBy: string,
+    isDesc: boolean,
+): PlaudRecording[] {
+    const byStart = sortBy === "start_time" || sortBy === "create_time";
+    const key = (r: PlaudRecording) => (byStart ? r.start_time : r.edit_time);
+    const dir = isDesc ? -1 : 1;
+    return [...recordings].sort(
+        (a, b) =>
+            dir * (key(a) - key(b)) || dir * (a.start_time - b.start_time),
+    );
+}
+
+function readyObject(
+    detail: PlaudV4FileDetail | undefined,
+    type: string,
+): PlaudV4FileObject | undefined {
+    return detail?.objects?.find(
+        (o) =>
+            o.object_type === type &&
+            o.task_status === 1 &&
+            o.safe_scan_status !== 2 &&
+            o.safe_scan_status !== 3 &&
+            Boolean(o.content_url || o.content_id),
+    );
+}
+
+const AUDIO_OBJECT_TYPES = ["AUDIO_TRANSCODED", "AUDIO"];
+
+/**
+ * Downloadable audio objects of a v4 file detail, in the order riffado tries
+ * them: `AUDIO_TRANSCODED` (the MP3 the Plaud player streams) before `AUDIO`
+ * (the recorder upload, not always a playable container). Only objects with
+ * a content URL or id are listed.
+ */
+export function plaudV4AudioCandidates(
+    detail: PlaudV4FileDetail | undefined,
+): PlaudV4FileObject[] {
+    const objects = detail?.objects ?? [];
+    return AUDIO_OBJECT_TYPES.flatMap((type) =>
+        objects.filter(
+            (o) =>
+                o.object_type === type &&
+                o.safe_scan_status !== 2 &&
+                o.safe_scan_status !== 3 &&
+                Boolean(o.content_url || o.content_id),
+        ),
+    );
+}
+
+/**
+ * The audio object riffado expects to download from a v4 file detail: the
+ * first of `plaudV4AudioCandidates`, else any audio object (for its size).
+ */
+export function selectPlaudV4Audio(
+    detail: PlaudV4FileDetail | undefined,
+): PlaudV4FileObject | undefined {
+    return (
+        plaudV4AudioCandidates(detail)[0] ??
+        AUDIO_OBJECT_TYPES.map((type) =>
+            detail?.objects?.find((o) => o.object_type === type),
+        ).find(Boolean)
+    );
+}
+
+/** Fill device, size, timezone and content flags from a v4 file detail. */
+export function applyPlaudV4Detail(
+    recording: PlaudRecording,
+    detail: PlaudV4FileDetail | undefined,
+): PlaudRecording {
+    if (!detail) return recording;
+    const meta = detail.meta ?? {};
+    const audio = selectPlaudV4Audio(detail);
+    const metaSize =
+        audio?.object_type === "AUDIO_TRANSCODED" ? undefined : meta.size_bytes;
+    const start = meta.start_time ?? recording.start_time;
+    const duration = meta.duration ?? recording.duration;
+    const offset = timeZoneOffsetMinutes(meta.timezone_iana, start);
+    return {
+        ...recording,
+        ...(offset !== undefined && meta.timezone_iana
+            ? { timezone_iana: meta.timezone_iana }
+            : {}),
+        serial_number: meta.serial_number || recording.serial_number,
+        filesize: audio?.object_size || metaSize || recording.filesize,
+        start_time: start,
+        end_time: start + duration,
+        duration,
+        timezone:
+            offset !== undefined ? Math.trunc(offset / 60) : recording.timezone,
+        zonemins: offset !== undefined ? offset % 60 : recording.zonemins,
+        is_trans: Boolean(readyObject(detail, "TRANSCRIPT")),
+        is_summary: Boolean(readyObject(detail, "SUMMARY")),
     };
+}
+
+const V4_CONTENT_TYPES: Record<string, string> = {
+    TRANSCRIPT: "transaction",
+    SUMMARY: "auto_sum_note",
+};
+
+/**
+ * Express a v4 file detail as the legacy `/file/detail` content manifest, so
+ * the Plaud-native import (`selectContentItems`, `parseTranscript`,
+ * `parseSummary`) runs unchanged. v4 `TRANSCRIPT` / `SUMMARY` objects point
+ * at the same `trans_result.json.gz` / `ai_content.md.gz` payloads.
+ */
+export function plaudV4DetailToLegacy(
+    detail: PlaudV4FileDetail | undefined,
+): PlaudFileDetailResponse {
+    const contentList: PlaudContentItem[] = [];
+    for (const o of detail?.objects ?? []) {
+        const dataType = o.object_type && V4_CONTENT_TYPES[o.object_type];
+        if (
+            !dataType ||
+            o.task_status !== 1 ||
+            o.safe_scan_status === 2 ||
+            o.safe_scan_status === 3
+        )
+            continue;
+        contentList.push({
+            data_id: o.content_id ?? o.object_id,
+            data_type: dataType,
+            task_status: o.task_status ?? undefined,
+            data_link: o.content_url ?? undefined,
+        });
+    }
     return {
         status: 0,
         data: {
-            file_id: detail.meta.file_id,
-            file_name: detail.node?.name,
-            duration: detail.meta.duration,
-            start_time: detail.meta.start_time,
-            content_list: detail.objects
-                .filter(usableV4Object)
-                .map((object) => ({
-                    data_id: object.object_id,
-                    data_type: types[object.object_type] ?? object.object_type,
-                    task_status: 1,
-                    data_link: object.content_url ?? undefined,
-                })),
+            file_id: detail?.meta?.file_id,
+            duration: detail?.meta?.duration,
+            start_time: detail?.meta?.start_time,
+            content_list: contentList,
+            pre_download_content_list: [],
         },
     };
 }

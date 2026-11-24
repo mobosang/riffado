@@ -2,6 +2,7 @@ import {
     differenceInDays,
     format,
     formatDistanceToNow,
+    isSameDay,
     isThisYear,
     isToday,
     isYesterday,
@@ -41,6 +42,25 @@ export function formatDateTime(
                 locale: locale === "zh-CN" ? zhCN : enUS,
             });
     }
+}
+
+/** Absolute local date and start–end time for a recording. */
+export function formatRecordingDateTimeRange(
+    start: Date | string,
+    durationMs: number,
+    locale: UiLocale = "en",
+): string {
+    const startDate = typeof start === "string" ? new Date(start) : start;
+    const endDate = new Date(startDate.getTime() + durationMs);
+
+    if (locale === "zh-CN") {
+        return `${format(startDate, "yyyy年M月d日 · HH:mm")}–${format(endDate, isSameDay(startDate, endDate) ? "HH:mm" : "yyyy年M月d日 · HH:mm")}`;
+    }
+    if (isSameDay(startDate, endDate)) {
+        return `${format(startDate, "MMM d, yyyy · h:mm a")}–${format(endDate, "h:mm a")}`;
+    }
+
+    return `${format(startDate, "MMM d, yyyy · h:mm a")}–${format(endDate, "MMM d, yyyy · h:mm a")}`;
 }
 
 /** Recording-list group label: Today / Yesterday / This week / month / Month YYYY. */

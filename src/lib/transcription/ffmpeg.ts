@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 export function runFfmpeg(
     input: Buffer,
@@ -84,12 +87,58 @@ export function ffmpegToOpus(
 
 /** Mono 16 kHz MP3 for chat-style providers that reject Ogg/Opus. */
 export function transcodeToMp3(input: Buffer): Promise<Buffer> {
-    return runFfmpeg(input, [
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-i",
-        "pipe:0",
+    return runFfmpeg(input, mp3Args());
+}
+
+/** Encode and yield mono 16 kHz MP3 segments from one ffmpeg pass. */
+export async function* transcodeToMp3Segments(
+    input: Buffer,
+    segmentSeconds: number,
+): AsyncGenerator<{ buffer: Buffer; index: number; count: number }> {
+    const workDir = await mkdtemp(join(tmpdir(), "riffado-diarize-"));
+    try {
+        const outputPattern = join(workDir, "part-%06d.mp3");
+        await runFfmpeg(input, [
+            ...ffmpegInputArgs(),
+            ...mp3EncodingArgs(),
+            "-f",
+            "segment",
+            "-segment_time",
+            segmentSeconds.toFixed(3),
+            "-reset_timestamps",
+            "1",
+            outputPattern,
+        ]);
+        const filenames = (await readdir(workDir))
+            .filter((name) => name.endsWith(".mp3"))
+            .sort();
+        if (filenames.length === 0) {
+            throw new Error("ffmpeg produced no MP3 segments");
+        }
+        for (const [index, name] of filenames.entries()) {
+            yield {
+                buffer: await readFile(join(workDir, name)),
+                index,
+                count: filenames.length,
+            };
+        }
+    } finally {
+        await rm(workDir, { recursive: true, force: true });
+    }
+}
+
+function mp3Args(): string[] {
+    return [...ffmpegInputArgs(), ...mp3EncodingArgs(), "-f", "mp3", "pipe:1"];
+}
+
+function ffmpegInputArgs(): string[] {
+    return ["-hide_banner", "-loglevel", "error", "-i", "pipe:0"];
+}
+
+function mp3EncodingArgs(): string[] {
+    return [
+        "-map",
+        "0:a:0",
         "-vn",
         "-map_metadata",
         "-1",
@@ -101,8 +150,5 @@ export function transcodeToMp3(input: Buffer): Promise<Buffer> {
         "libmp3lame",
         "-b:a",
         "64k",
-        "-f",
-        "mp3",
-        "pipe:1",
-    ]);
+    ];
 }

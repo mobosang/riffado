@@ -16,8 +16,10 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { getApiErrorMessage } from "@/lib/api-errors";
+import { formatDateTime } from "@/lib/format-date";
 import { useUiText } from "@/lib/i18n/client";
 import { uiError } from "@/lib/i18n/errors";
+import { plaudConnectionBannerState } from "@/lib/plaud/connection-expiry";
 import { PLAUD_SERVERS, type PlaudServerKey } from "@/lib/plaud/servers";
 
 interface ConnectionInfo {
@@ -25,6 +27,9 @@ interface ConnectionInfo {
     server?: PlaudServerKey;
     plaudEmail?: string | null;
     needsReconnect?: boolean;
+    accessExpiresAt?: string | null;
+    sessionExpiresAt?: string | null;
+    autoRenews?: boolean;
     createdAt?: string;
     updatedAt?: string;
     apiBase?: string;
@@ -59,6 +64,7 @@ export function PlaudAccountSection({
         if (!server) return uiText("Unknown");
         if (server === "custom")
             return apiBase ?? uiText(PLAUD_SERVERS.custom.label);
+        if (server === "cn") return uiText("China");
         if (server === "global") return uiText("Global");
         if (server === "eu") return uiText("EU (Frankfurt)");
         if (server === "apse1") return uiText("Asia Pacific (Singapore)");
@@ -187,7 +193,17 @@ export function PlaudAccountSection({
     }
 
     const currentEmail = info?.plaudEmail ?? null;
-    const currentEmailDisplay = currentEmail ?? uiText("the current account");
+    const currentEmailDisplay = currentEmail ?? "the current account";
+    const connectionState = info?.connected
+        ? plaudConnectionBannerState({
+              needsReconnect: info.needsReconnect === true,
+              sessionExpiresAt: info.sessionExpiresAt,
+              now: Date.now(),
+          })
+        : null;
+    const sessionEndsOn = info?.sessionExpiresAt
+        ? formatDateTime(info.sessionExpiresAt, "absolute", uiText.locale)
+        : null;
 
     return (
         <div className="space-y-6">
@@ -239,19 +255,32 @@ export function PlaudAccountSection({
                                         </>
                                     )}
                                 </p>
+                                {sessionEndsOn && connectionState === null && (
+                                    <p className="text-sm text-muted-foreground">
+                                        {uiText("Connected until")}{" "}
+                                        {sessionEndsOn}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
-                        {info.needsReconnect && (
+                        {connectionState === "reconnect" && (
                             <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-500">
                                 {uiText(
-                                    "Plaud stopped accepting this sign-in, so syncing is paused. Reconnect to resume — your recordings stay put.",
+                                    "Plaud stopped accepting this sign-in, so syncing is paused. Reconnect to resume. Your recordings stay put.",
                                 )}
+                            </p>
+                        )}
+                        {connectionState === "ending-soon" && (
+                            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-500">
+                                {uiText("Your Plaud connection ends on")}{" "}
+                                {sessionEndsOn}
+                                {uiText(". Reconnect to keep syncing.")}
                             </p>
                         )}
 
                         <div className="flex flex-wrap gap-2">
-                            {info.needsReconnect && (
+                            {connectionState !== null && (
                                 <Button
                                     onClick={() => setReconnectDialogOpen(true)}
                                 >

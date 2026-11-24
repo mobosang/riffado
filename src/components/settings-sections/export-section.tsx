@@ -474,7 +474,7 @@ export function ExportSection({ onReRunOnboarding }: ExportSectionProps) {
                     </div>
                     <p className="text-xs text-muted-foreground">
                         {uiText(
-                            '"Export text" downloads transcripts + summaries instantly. "Create full backup" also bundles the original audio into a zip archive; large libraries take a few minutes to build in the background, and you\'ll get an email when it\'s ready.',
+                            '"Export text" downloads transcripts + summaries instantly. "Create full backup" also bundles the original audio into a zip archive; large libraries take a few minutes to build in the background, and you\'ll get an email when it\'s ready. A backup stays available for 7 days. A newer backup that includes all your audio replaces the previous one.',
                         )}
                     </p>
                     {backupJob && (

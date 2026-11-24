@@ -56,8 +56,10 @@ it("counts returned failures without logging private recording names or double-r
         .mockRejectedValueOnce(new Error("connection failed"));
     startBackgroundSyncWorker();
     await vi.advanceTimersByTimeAsync(30000);
-    expect(log).toHaveBeenCalledWith("[background-sync] synced=1 errors=2");
-    expect(error).toHaveBeenCalledTimes(2);
+    expect(log).toHaveBeenCalledWith(
+        "[background-sync] synced=1 errors=2 reconnect=0",
+    );
+    expect(error).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(error.mock.calls)).not.toContain(
         "private recording filename",
     );

@@ -1,13 +1,35 @@
 import { and, desc, eq, sql, sum } from "drizzle-orm";
 import { db } from "@/db";
+import { listExportStorageKeysForUser } from "@/db/queries/export-jobs";
+import { enqueueStorageDeletions } from "@/db/queries/storage-deletions";
 import {
     billingCustomers,
+    exportJobs,
     foundingMemberReservations,
     recordings,
     stripeWebhookEvents,
     subscriptions,
     users,
 } from "@/db/schema";
+
+/**
+ * Coerce a timestamp column read through `db.execute`.
+ *
+ * `db.execute` hands back raw driver rows, and on postgres-js a
+ * `timestamp` column arrives as a string, not a `Date`. The generic on
+ * `db.execute<Shape>()` is an unchecked assertion, not a parse, so a
+ * `Date`-typed field there compiles fine and then blows up at the first
+ * `.getTime()` call in the caller. Every raw-SQL reader in this file
+ * coerces at the boundary so the exported signature is honest.
+ */
+function asDate(value: Date | string): Date {
+    return value instanceof Date ? value : new Date(value);
+}
+
+/** Nullable variant of `asDate`. */
+function asDateOrNull(value: Date | string | null | undefined): Date | null {
+    return value === null || value === undefined ? null : asDate(value);
+}
 
 export interface BillingCustomerRow {
     userId: string;
@@ -640,7 +662,7 @@ export async function listFoundingReservationsForExpiryCheck(input: {
     const result = await db.execute<{
         id: string;
         stripe_checkout_session_id: string;
-        expires_at: Date;
+        expires_at: Date | string;
     }>(sql`
         select id, stripe_checkout_session_id, expires_at
         from ${foundingMemberReservations}
@@ -656,7 +678,7 @@ export async function listFoundingReservationsForExpiryCheck(input: {
     return rows.map((row) => ({
         id: row.id,
         stripeCheckoutSessionId: row.stripe_checkout_session_id,
-        expiresAt: row.expires_at,
+        expiresAt: asDate(row.expires_at),
     }));
 }
 
@@ -757,9 +779,9 @@ export async function claimUsersWithExpiredTrials(limit: number): Promise<
 > {
     const result = await db.execute<{
         id: string;
-        created_at: Date;
-        ever_paid_at: Date | null;
-        plan_transition_until: Date | null;
+        created_at: Date | string;
+        ever_paid_at: Date | string | null;
+        plan_transition_until: Date | string | null;
     }>(sql`
         select u.id, u.created_at, u.ever_paid_at, u.plan_transition_until
         from ${users} u
@@ -780,9 +802,9 @@ export async function claimUsersWithExpiredTrials(limit: number): Promise<
         : ((result as { rows: typeof result }).rows ?? []);
     return rows.map((r) => ({
         id: r.id,
-        createdAt: r.created_at,
-        everPaidAt: r.ever_paid_at,
-        planTransitionUntil: r.plan_transition_until,
+        createdAt: asDate(r.created_at),
+        everPaidAt: asDateOrNull(r.ever_paid_at),
+        planTransitionUntil: asDateOrNull(r.plan_transition_until),
     }));
 }
 
@@ -820,8 +842,26 @@ export async function listRecordingStoragePaths(
     return rows.map((r) => r.storagePath);
 }
 
-/** Hard-delete a user while preserving any lifetime founding-capacity claim. */
-export async function deleteUser(userId: string): Promise<void> {
+/**
+ * Hard-delete a user while preserving any lifetime founding-capacity claim.
+ *
+ * The user row is locked first (`FOR UPDATE`). A concurrent recording or
+ * export-job insert needs a `FOR KEY SHARE` lock on that row for its FK
+ * check, so it waits for this transaction and then fails with an FK
+ * violation instead of adding a row (and storage key) after the scan.
+ * In the same transaction, the user's export jobs and recordings are
+ * locked and re-read, and their storage keys are queued for deletion
+ * (`storage_deletion_queue`), so the keys are queued exactly when the
+ * user row and every row that referenced them are gone. Recording paths
+ * in `deletedStorageKeys` (deleted by the caller before this call) are
+ * skipped. Export keys are always queued: an export that was in flight
+ * when the caller deleted its key may have written the object since.
+ * Queueing an object that is already gone is harmless.
+ */
+export async function deleteUser(
+    userId: string,
+    options: { deletedStorageKeys?: string[] } = {},
+): Promise<void> {
     await db.transaction(async (tx) => {
         await tx.execute(
             sql`select pg_advisory_xact_lock(hashtextextended('billing_founding_members', 0))`,
@@ -835,7 +875,8 @@ export async function deleteUser(userId: string): Promise<void> {
             })
             .from(users)
             .where(eq(users.id, userId))
-            .limit(1);
+            .limit(1)
+            .for("update");
         if (
             user &&
             (user.foundingMember || user.foundingMemberClaimedAt !== null)
@@ -868,7 +909,28 @@ export async function deleteUser(userId: string): Promise<void> {
             }
         }
 
+        await tx
+            .select({ id: exportJobs.id })
+            .from(exportJobs)
+            .where(eq(exportJobs.userId, userId))
+            .orderBy(exportJobs.id)
+            .for("update");
+        const exportKeys = await listExportStorageKeysForUser(userId, tx);
+        const recordingRows = await tx
+            .select({ storagePath: recordings.storagePath })
+            .from(recordings)
+            .where(eq(recordings.userId, userId))
+            .for("update");
+        const deleted = new Set(options.deletedStorageKeys ?? []);
+        const pendingKeys = [
+            ...recordingRows
+                .map((row) => row.storagePath)
+                .filter((path) => !deleted.has(path)),
+            ...exportKeys,
+        ];
+
         await tx.delete(users).where(eq(users.id, userId));
+        await enqueueStorageDeletions(pendingKeys, "account_deletion", tx);
     });
 }
 
@@ -1004,7 +1066,7 @@ export async function listSubscriptionsForReconcile(input: {
         id: string;
         stripe_customer_id: string;
         status: string;
-        updated_at: Date;
+        updated_at: Date | string;
     }>(sql`
         select id, stripe_customer_id, status, updated_at
         from ${subscriptions}
@@ -1020,7 +1082,7 @@ export async function listSubscriptionsForReconcile(input: {
         id: r.id,
         stripeCustomerId: r.stripe_customer_id,
         status: r.status,
-        updatedAt: r.updated_at,
+        updatedAt: asDate(r.updated_at),
     }));
 }
 
@@ -1078,7 +1140,7 @@ export async function claimDueStripeWebhookEvents(input: {
     const claimed = await db.execute<{
         event_id: string;
         type: string;
-        event_created_at: Date;
+        event_created_at: Date | string;
         payload: Record<string, unknown>;
         attempts: number;
         claim_token: string;
@@ -1109,7 +1171,7 @@ export async function claimDueStripeWebhookEvents(input: {
     return rows.map((row) => ({
         eventId: row.event_id,
         type: row.type,
-        eventCreatedAt: row.event_created_at,
+        eventCreatedAt: asDate(row.event_created_at),
         payload: row.payload,
         attempts: row.attempts,
         claimToken: row.claim_token,

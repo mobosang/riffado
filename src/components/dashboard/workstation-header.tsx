@@ -31,6 +31,8 @@ interface Props {
     onUploadInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onOpenPalette: () => void;
     onOpenSettings: () => void;
+    /** Called on hover or focus of the Settings entry so its data can load before the click. */
+    onSettingsIntent: () => void;
     onOpenShortcuts: () => void;
 }
 
@@ -64,6 +66,7 @@ export function WorkstationHeader({
     onUploadInputChange,
     onOpenPalette,
     onOpenSettings,
+    onSettingsIntent,
     onOpenShortcuts,
 }: Props) {
     const uiText = useUiText();
@@ -94,7 +97,7 @@ export function WorkstationHeader({
                             <Command className="mr-2 size-4" />
                             <span>{uiText("Search")}</span>
                             <kbd className="ml-2 hidden rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground lg:inline">
-                                ⌘K
+                                {uiText("⌘K")}
                             </kbd>
                         </Button>
                     </TooltipTrigger>
@@ -147,6 +150,7 @@ export function WorkstationHeader({
                     initialTheme={initialTheme}
                     userEmail={userEmail}
                     onOpenSettings={onOpenSettings}
+                    onSettingsIntent={onSettingsIntent}
                     onOpenShortcuts={onOpenShortcuts}
                 />
             </div>

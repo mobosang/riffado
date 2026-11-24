@@ -75,11 +75,16 @@ export function TranscriptionSection() {
 
     const { isLoadingSettings, isSavingSettings, setIsLoadingSettings } =
         useSettings();
+    const [isSaving, setIsSaving] = useState(false);
     const [autoTranscribe, setAutoTranscribe] = useState(false);
     const [defaultTranscriptionLanguage, setDefaultTranscriptionLanguage] =
         useState<string | null>(null);
     const [transcriptionQuality, setTranscriptionQuality] =
         useState("balanced");
+    const [speakerDiarization, setSpeakerDiarization] = useState(true);
+    const [diarizationSpeakerCount, setDiarizationSpeakerCount] = useState<
+        number | null
+    >(null);
     const [autoGenerateTitle, setAutoGenerateTitle] = useState(true);
     const [syncTitleToPlaud, setSyncTitleToPlaud] = useState(false);
     const [importPlaudContent, setImportPlaudContent] = useState(false);
@@ -100,6 +105,10 @@ export function TranscriptionSection() {
                     );
                     setTranscriptionQuality(
                         data.transcriptionQuality ?? "balanced",
+                    );
+                    setSpeakerDiarization(data.speakerDiarization ?? true);
+                    setDiarizationSpeakerCount(
+                        data.diarizationSpeakerCount ?? null,
                     );
                     setAutoGenerateTitle(data.autoGenerateTitle ?? true);
                     setSyncTitleToPlaud(data.syncTitleToPlaud ?? false);
@@ -123,6 +132,7 @@ export function TranscriptionSection() {
         setAutoTranscribe(checked);
         pendingChangesRef.current.set("autoTranscribe", previous);
 
+        setIsSaving(true);
         try {
             const response = await fetch("/api/settings/user", {
                 method: "PUT",
@@ -139,6 +149,8 @@ export function TranscriptionSection() {
             setAutoTranscribe(previous);
             pendingChangesRef.current.delete("autoTranscribe");
             toast.error(uiText("Failed to save settings. Changes reverted."));
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -162,6 +174,7 @@ export function TranscriptionSection() {
             setPreferredTranscriptSource(updates.preferredTranscriptSource);
         }
 
+        setIsSaving(true);
         try {
             const response = await fetch("/api/settings/user", {
                 method: "PUT",
@@ -176,12 +189,16 @@ export function TranscriptionSection() {
             setTranscriptMode(prev.transcriptMode);
             setPreferredTranscriptSource(prev.preferredTranscriptSource);
             toast.error(uiText("Failed to save settings. Changes reverted."));
+        } finally {
+            setIsSaving(false);
         }
     };
 
     const handleTranscriptionSettingChange = async (updates: {
         defaultTranscriptionLanguage?: string | null;
         transcriptionQuality?: string;
+        speakerDiarization?: boolean;
+        diarizationSpeakerCount?: number | null;
         autoGenerateTitle?: boolean;
         syncTitleToPlaud?: boolean;
     }) => {
@@ -200,6 +217,16 @@ export function TranscriptionSection() {
             setTranscriptionQuality(updates.transcriptionQuality);
             pendingChangesRef.current.set("transcriptionQuality", previous);
         }
+        if (updates.speakerDiarization !== undefined) {
+            const previous = speakerDiarization;
+            setSpeakerDiarization(updates.speakerDiarization);
+            pendingChangesRef.current.set("speakerDiarization", previous);
+        }
+        if (updates.diarizationSpeakerCount !== undefined) {
+            const previous = diarizationSpeakerCount;
+            setDiarizationSpeakerCount(updates.diarizationSpeakerCount);
+            pendingChangesRef.current.set("diarizationSpeakerCount", previous);
+        }
         if (updates.autoGenerateTitle !== undefined) {
             const previous = autoGenerateTitle;
             setAutoGenerateTitle(updates.autoGenerateTitle);
@@ -211,6 +238,7 @@ export function TranscriptionSection() {
             pendingChangesRef.current.set("syncTitleToPlaud", previous);
         }
 
+        setIsSaving(true);
         try {
             const response = await fetch("/api/settings/user", {
                 method: "PUT",
@@ -229,6 +257,12 @@ export function TranscriptionSection() {
             }
             if (updates.transcriptionQuality !== undefined) {
                 pendingChangesRef.current.delete("transcriptionQuality");
+            }
+            if (updates.speakerDiarization !== undefined) {
+                pendingChangesRef.current.delete("speakerDiarization");
+            }
+            if (updates.diarizationSpeakerCount !== undefined) {
+                pendingChangesRef.current.delete("diarizationSpeakerCount");
             }
             if (updates.autoGenerateTitle !== undefined) {
                 pendingChangesRef.current.delete("autoGenerateTitle");
@@ -260,6 +294,26 @@ export function TranscriptionSection() {
                     pendingChangesRef.current.delete("transcriptionQuality");
                 }
             }
+            if (updates.speakerDiarization !== undefined) {
+                const previous =
+                    pendingChangesRef.current.get("speakerDiarization");
+                if (previous !== undefined && typeof previous === "boolean") {
+                    setSpeakerDiarization(previous);
+                    pendingChangesRef.current.delete("speakerDiarization");
+                }
+            }
+            if (updates.diarizationSpeakerCount !== undefined) {
+                const previous = pendingChangesRef.current.get(
+                    "diarizationSpeakerCount",
+                );
+                if (
+                    previous !== undefined &&
+                    (typeof previous === "number" || previous === null)
+                ) {
+                    setDiarizationSpeakerCount(previous);
+                    pendingChangesRef.current.delete("diarizationSpeakerCount");
+                }
+            }
             if (updates.autoGenerateTitle !== undefined) {
                 const previous =
                     pendingChangesRef.current.get("autoGenerateTitle");
@@ -277,6 +331,8 @@ export function TranscriptionSection() {
                 }
             }
             toast.error(uiText("Failed to save settings. Changes reverted."));
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -313,7 +369,7 @@ export function TranscriptionSection() {
                         id="auto-transcribe"
                         checked={autoTranscribe}
                         onCheckedChange={handleAutoTranscribeChange}
-                        disabled={isSavingSettings}
+                        disabled={isSavingSettings || isSaving}
                     />
                 </div>
 
@@ -339,7 +395,7 @@ export function TranscriptionSection() {
                                 importPlaudContent: checked,
                             })
                         }
-                        disabled={isSavingSettings}
+                        disabled={isSavingSettings || isSaving}
                     />
                 </div>
 
@@ -356,7 +412,7 @@ export function TranscriptionSection() {
                                         transcriptMode: value,
                                     })
                                 }
-                                disabled={isSavingSettings}
+                                disabled={isSavingSettings || isSaving}
                             >
                                 <SelectTrigger
                                     id="transcript-mode"
@@ -395,7 +451,7 @@ export function TranscriptionSection() {
                                         preferredTranscriptSource: value,
                                     })
                                 }
-                                disabled={isSavingSettings}
+                                disabled={isSavingSettings || isSaving}
                             >
                                 <SelectTrigger
                                     id="preferred-transcript-source"
@@ -404,7 +460,9 @@ export function TranscriptionSection() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="plaud">Plaud</SelectItem>
+                                    <SelectItem value="plaud">
+                                        {uiText("Plaud")}
+                                    </SelectItem>
                                     <SelectItem value="riffado">
                                         {uiText("My provider")}
                                     </SelectItem>
@@ -432,7 +490,7 @@ export function TranscriptionSection() {
                                 defaultTranscriptionLanguage: lang,
                             });
                         }}
-                        disabled={isSavingSettings}
+                        disabled={isSavingSettings || isSaving}
                     >
                         <SelectTrigger
                             id="transcription-language"
@@ -464,6 +522,88 @@ export function TranscriptionSection() {
                     </p>
                 </div>
 
+                <div className="flex items-center justify-between">
+                    <div className="space-y-0.5 flex-1">
+                        <Label
+                            htmlFor="speaker-diarization"
+                            className="text-base"
+                        >
+                            {uiText("Speaker labels")}
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                            {uiText(
+                                "Splits the transcript by speaker (Speaker 1:, Speaker 2:). Supported by ElevenLabs Scribe; other providers ignore it.",
+                            )}
+                        </p>
+                    </div>
+                    <Switch
+                        id="speaker-diarization"
+                        checked={speakerDiarization}
+                        onCheckedChange={(checked) => {
+                            setSpeakerDiarization(checked);
+                            handleTranscriptionSettingChange({
+                                speakerDiarization: checked,
+                            });
+                        }}
+                        disabled={isSavingSettings || isSaving}
+                    />
+                </div>
+
+                {speakerDiarization && (
+                    <div className="space-y-2 pl-4 border-l-2 border-primary/20">
+                        <Label htmlFor="diarization-speaker-count">
+                            {uiText("Expected speakers")}
+                        </Label>
+                        <Select
+                            value={
+                                diarizationSpeakerCount === null
+                                    ? "auto"
+                                    : String(diarizationSpeakerCount)
+                            }
+                            onValueChange={(value) => {
+                                const count =
+                                    value === "auto" ? null : Number(value);
+                                handleTranscriptionSettingChange({
+                                    diarizationSpeakerCount: count,
+                                });
+                            }}
+                            disabled={isSavingSettings || isSaving}
+                        >
+                            <SelectTrigger
+                                id="diarization-speaker-count"
+                                className="w-full"
+                            >
+                                <SelectValue>
+                                    {diarizationSpeakerCount === null
+                                        ? uiText("Auto")
+                                        : String(diarizationSpeakerCount)}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="auto">
+                                    {uiText("Auto")}
+                                </SelectItem>
+                                {Array.from(
+                                    { length: 32 },
+                                    (_, i) => i + 1,
+                                ).map((count) => (
+                                    <SelectItem
+                                        key={count}
+                                        value={String(count)}
+                                    >
+                                        {count}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            {uiText(
+                                "A hint, not a hard limit. Auto works well for most recordings.",
+                            )}
+                        </p>
+                    </div>
+                )}
+
                 <div className="space-y-2">
                     <Label htmlFor="transcription-quality">
                         {uiText("Transcription quality")}
@@ -476,7 +616,7 @@ export function TranscriptionSection() {
                                 transcriptionQuality: value,
                             });
                         }}
-                        disabled={isSavingSettings}
+                        disabled={isSavingSettings || isSaving}
                     >
                         <SelectTrigger
                             id="transcription-quality"
@@ -534,7 +674,7 @@ export function TranscriptionSection() {
                                 autoGenerateTitle: checked,
                             });
                         }}
-                        disabled={isSavingSettings}
+                        disabled={isSavingSettings || isSaving}
                     />
                 </div>
 
@@ -562,7 +702,7 @@ export function TranscriptionSection() {
                                     syncTitleToPlaud: checked,
                                 });
                             }}
-                            disabled={isSavingSettings}
+                            disabled={isSavingSettings || isSaving}
                         />
                     </div>
                 )}
