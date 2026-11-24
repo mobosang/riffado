@@ -3,6 +3,7 @@
 import {
     ChevronDown,
     ChevronUp,
+    Download,
     FileText,
     Languages,
     ListChecks,
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { useTranscriptionSummary } from "@/hooks/use-transcription-summary";
 import { useUiText } from "@/lib/i18n/client";
+import { sanitizeDownloadBasename } from "@/lib/recordings/filename";
 import type { Recording } from "@/types/recording";
 
 interface Transcription {
@@ -108,17 +110,47 @@ export function TranscriptionPanel({
         transcriptionText: activeTranscript?.text,
     });
 
+    function downloadMarkdown(text: string) {
+        const basename =
+            sanitizeDownloadBasename(recording.filename) || "transcript";
+        const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = basename.toLowerCase().endsWith(".md")
+            ? basename
+            : `${basename}.md`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
     return (
         <div className="space-y-4">
             {/* Transcription Card */}
             <Card>
                 <CardHeader>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                         <CardTitle className="flex items-center gap-2">
                             <FileText className="size-5" />
                             {uiText("Transcription")}
                         </CardTitle>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            {activeTranscript?.text && (
+                                <Button
+                                    type="button"
+                                    onClick={() =>
+                                        downloadMarkdown(activeTranscript.text)
+                                    }
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={isTranscribing}
+                                >
+                                    <Download className="size-4" />
+                                    {uiText("Export MD")}
+                                </Button>
+                            )}
                             {activeTranscript?.text && (
                                 <Button
                                     onClick={onTranscribe}
