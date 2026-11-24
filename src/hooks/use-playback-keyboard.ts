@@ -41,6 +41,11 @@ export function usePlaybackKeyboard({
 
             switch (e.key) {
                 case " ":
+                    if (
+                        target instanceof Element &&
+                        target.closest("button, [role=button]")
+                    )
+                        return;
                     e.preventDefault();
                     onToggle();
                     break;

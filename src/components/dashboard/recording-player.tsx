@@ -1,7 +1,9 @@
 "use client";
 
+import { type ReactNode, useMemo } from "react";
 import { RecordingPlayerControls } from "@/components/dashboard/recording-player-controls";
 import { RecordingPlayerHeader } from "@/components/dashboard/recording-player-header";
+import { RecordingPlaybackContext } from "@/components/recordings/recording-playback-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { usePlaybackEngine } from "@/hooks/use-playback-engine";
 import { usePlaybackKeyboard } from "@/hooks/use-playback-keyboard";
@@ -10,6 +12,7 @@ import type { Recording } from "@/types/recording";
 
 interface RecordingPlayerProps {
     recording: Recording;
+    children?: ReactNode;
     onEnded?: () => void;
     onRenamed?: (filename: string) => void;
     initialPlaybackSpeed?: number;
@@ -33,6 +36,7 @@ interface RecordingPlayerProps {
  */
 export function RecordingPlayer({
     recording,
+    children,
     onEnded,
     onRenamed,
     initialPlaybackSpeed = 1.0,
@@ -49,6 +53,7 @@ export function RecordingPlayer({
         setVolume,
         playbackSpeed,
         togglePlayPause,
+        seekToTime,
         seekToRatio,
         seekRelative,
         cycleSpeed,
@@ -60,6 +65,12 @@ export function RecordingPlayer({
         initialVolume,
         initialAutoPlayNext,
     });
+
+    const transcriptTime = Math.floor(currentTime);
+    const playback = useMemo(
+        () => ({ currentTime: transcriptTime, seekToTime }),
+        [transcriptTime, seekToTime],
+    );
 
     usePlaybackKeyboard({
         onToggle: togglePlayPause,
@@ -88,35 +99,38 @@ export function RecordingPlayer({
     });
 
     return (
-        <Card>
-            <RecordingPlayerHeader
-                recording={recording}
-                duration={duration}
-                scrubberStyle={scrubberStyle}
-                waveformStatus={waveformStatus}
-                onDecodeWaveform={triggerWaveformDecode}
-                onRenamed={onRenamed}
-            />
-            <CardContent>
-                <RecordingPlayerControls
-                    isPlaying={isPlaying}
-                    onTogglePlay={togglePlayPause}
-                    currentTime={currentTime}
+        <RecordingPlaybackContext.Provider value={playback}>
+            <Card>
+                <RecordingPlayerHeader
+                    recording={recording}
                     duration={duration}
-                    onSeekRatio={seekToRatio}
-                    playbackSpeed={playbackSpeed}
-                    onCycleSpeed={cycleSpeed}
-                    volume={volume}
-                    onVolumeChange={setVolume}
-                    onToggleMute={toggleMute}
                     scrubberStyle={scrubberStyle}
-                    waveformPeaks={waveformPeaks}
+                    waveformStatus={waveformStatus}
+                    onDecodeWaveform={triggerWaveformDecode}
+                    onRenamed={onRenamed}
                 />
+                <CardContent>
+                    <RecordingPlayerControls
+                        isPlaying={isPlaying}
+                        onTogglePlay={togglePlayPause}
+                        currentTime={currentTime}
+                        duration={duration}
+                        onSeekRatio={seekToRatio}
+                        playbackSpeed={playbackSpeed}
+                        onCycleSpeed={cycleSpeed}
+                        volume={volume}
+                        onVolumeChange={setVolume}
+                        onToggleMute={toggleMute}
+                        scrubberStyle={scrubberStyle}
+                        waveformPeaks={waveformPeaks}
+                    />
 
-                <audio ref={audioRef} preload="metadata" className="hidden">
-                    <track kind="captions" />
-                </audio>
-            </CardContent>
-        </Card>
+                    <audio ref={audioRef} preload="metadata" className="hidden">
+                        <track kind="captions" />
+                    </audio>
+                </CardContent>
+            </Card>
+            {children}
+        </RecordingPlaybackContext.Provider>
     );
 }

@@ -1,8 +1,20 @@
 "use client";
 
-import type { JSX, ReactNode } from "react";
+import {
+    type JSX,
+    type ReactNode,
+    useContext,
+    useEffect,
+    useId,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
+import { RecordingPlaybackContext } from "@/components/recordings/recording-playback-context";
+import { Switch } from "@/components/ui/switch";
 import { useUiText } from "@/lib/i18n/client";
 import { isValidPlaudApiUrl } from "@/lib/plaud/servers";
+import { cn } from "@/lib/utils";
 
 function isSafeImageSrc(src: string): boolean {
     if (isValidPlaudApiUrl(src)) return true;
@@ -349,27 +361,77 @@ export function RichMarkdown({
 // `Question: ...` or `Action item: ...` as a speaker turn and wrongly switch a
 // non-diarized transcript out of its plain-text fallback.
 const SPEAKER_RE = /^(SPEAKER_\w+|Speaker\s+\w+|UNKNOWN):\s*(.*)$/;
-const TIMESTAMPED_SPEAKER_RE =
-    /^\[(\d{2}(?::\d{2}){1,2})\]\s+(Speaker\s+\w+)(\s+·\s+Part\s+\d+)?$/;
+const TIMESTAMP_RE = /^\[((?:\d{1,3}:)?[0-5]?\d:[0-5]\d)\]\s+(.+)$/;
+const SPEAKER_HEADER_RE = /^Speaker\s+\w+(?:\s+·\s+Part\s+\d+)?$/;
+const INLINE_SPEAKER_RE = /^([^:：]+)([:：])\s*(.*)$/;
 
 const SPEAKER_COLORS = [
     "text-accent-cyan",
-    "text-emerald-400",
-    "text-amber-400",
-    "text-violet-400",
-    "text-rose-400",
-    "text-sky-400",
+    "text-emerald-800 dark:text-emerald-400",
+    "text-amber-800 dark:text-amber-400",
+    "text-violet-800 dark:text-violet-400",
+    "text-rose-800 dark:text-rose-400",
+    "text-sky-800 dark:text-sky-400",
 ];
 
-/**
- * Render a diarized transcript as one block per speaker turn, colouring
- * each speaker label consistently in order of first appearance.
- *
- * Plaud transcripts arrive as `SPEAKER_00: ...` / `Speaker 1: ...` lines.
- * OpenAI diarization uses a timestamped speaker header followed by its text.
- * Continuation lines are appended to the preceding turn. When no line carries
- * a label at all, the whole text keeps the previous pre-wrapped rendering.
- */
+interface SpeakerTurn {
+    lineNumber: number;
+    speaker: string | null;
+    label: string | null;
+    text: string;
+    startTime: number | null;
+}
+
+function parseSpeakerTurns(text: string): SpeakerTurn[] | null {
+    const lines = text
+        .replace(/\r\n/g, "\n")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+    const turns: SpeakerTurn[] = [];
+    for (const [lineNumber, line] of lines.entries()) {
+        const labeled = line.match(SPEAKER_RE);
+        const timestamped = line.match(TIMESTAMP_RE);
+        if (labeled) {
+            turns.push({
+                lineNumber,
+                speaker: labeled[1],
+                label: `${labeled[1]}:`,
+                text: labeled[2],
+                startTime: null,
+            });
+        } else if (timestamped) {
+            const [, timestamp, body] = timestamped;
+            const inline = body.match(INLINE_SPEAKER_RE);
+            const speaker =
+                inline?.[1] ?? (SPEAKER_HEADER_RE.test(body) ? body : null);
+            const label = speaker ? ` ${speaker}${inline?.[2] ?? ""}` : "";
+            turns.push({
+                lineNumber,
+                speaker,
+                label: `[${timestamp}]${label}`,
+                text: inline?.[3] ?? (speaker ? "" : body),
+                startTime: timestamp
+                    .split(":")
+                    .reduce((seconds, part) => seconds * 60 + Number(part), 0),
+            });
+        } else if (turns.length) {
+            turns[turns.length - 1].text += ` ${line}`;
+        } else {
+            turns.push({
+                lineNumber,
+                speaker: null,
+                label: null,
+                text: line,
+                startTime: null,
+            });
+        }
+    }
+    return turns.some((turn) => turn.label !== null) ? turns : null;
+}
+
+/** Render speaker turns and connect timestamped rows to the surrounding player. */
 export function SpeakerTranscript({
     text,
     className,
@@ -377,76 +439,157 @@ export function SpeakerTranscript({
     text: string;
     className?: string;
 }): JSX.Element {
-    const lines = text
-        .replace(/\r\n/g, "\n")
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean);
+    const uiText = useUiText();
+    const playback = useContext(RecordingPlaybackContext);
+    const seekToTime = playback?.seekToTime;
+    const turns = useMemo(() => parseSpeakerTurns(text), [text]);
+    const hasTimeline = Boolean(
+        seekToTime && turns?.some((turn) => turn.startTime !== null),
+    );
+    const [followPlayback, setFollowPlayback] = useState(true);
+    const followId = useId();
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const activeRowRef = useRef<HTMLButtonElement>(null);
 
-    const turns: {
-        speaker: string | null;
-        label: string | null;
-        text: string;
-    }[] = [];
-    for (const line of lines) {
-        const labeled = line.match(SPEAKER_RE);
-        const timestamped = line.match(TIMESTAMPED_SPEAKER_RE);
-        if (labeled) {
-            turns.push({
-                speaker: labeled[1],
-                label: `${labeled[1]}:`,
-                text: labeled[2],
-            });
-        } else if (timestamped) {
-            const part = timestamped[3] ?? "";
-            turns.push({
-                speaker: `${timestamped[2]}${part}`,
-                label: `[${timestamped[1]}] ${timestamped[2]}${part}`,
-                text: "",
-            });
-        } else if (turns.length) {
-            turns[turns.length - 1].text += ` ${line}`;
-        } else {
-            turns.push({ speaker: null, label: null, text: line });
+    let activeTurn: SpeakerTurn | undefined;
+    if (playback && turns) {
+        for (const turn of turns) {
+            if (
+                turn.startTime !== null &&
+                turn.startTime <= playback.currentTime &&
+                turn.startTime > (activeTurn?.startTime ?? -1)
+            ) {
+                activeTurn = turn;
+            }
         }
     }
 
-    const hasSpeakers = turns.some((t) => t.speaker !== null);
-    if (!hasSpeakers) {
+    useEffect(() => {
+        if (!hasTimeline || !followPlayback) return;
+        const viewport = scrollRef.current;
+        if (!viewport?.clientHeight) return;
+        if (!activeTurn) {
+            if (viewport.scrollTop > 0) {
+                viewport.scrollBy({ top: -viewport.scrollTop });
+            }
+            return;
+        }
+        const row = activeRowRef.current;
+        if (!row) return;
+
+        const viewportTop =
+            viewport.getBoundingClientRect().top + viewport.clientTop;
+        const bounds = row.getBoundingClientRect();
+        const inset = 8;
+        const top = bounds.top - viewportTop;
+        const bottom = bounds.bottom - viewportTop;
+        if (top < inset || bounds.height > viewport.clientHeight - 2 * inset) {
+            viewport.scrollBy({ top: top - inset });
+        } else if (bottom > viewport.clientHeight - inset) {
+            viewport.scrollBy({ top: bottom - viewport.clientHeight + inset });
+        }
+    }, [activeTurn, followPlayback, hasTimeline]);
+
+    const rows = useMemo(() => {
+        const order: string[] = [];
+        const colorFor = (speaker: string) => {
+            let idx = order.indexOf(speaker);
+            if (idx === -1) {
+                order.push(speaker);
+                idx = order.length - 1;
+            }
+            return SPEAKER_COLORS[idx % SPEAKER_COLORS.length];
+        };
+        return turns?.map((turn) => {
+            const { lineNumber, startTime } = turn;
+            const content = (
+                <>
+                    {turn.label && (
+                        <span
+                            dir="ltr"
+                            className={cn(
+                                "me-2 font-semibold",
+                                turn.speaker
+                                    ? colorFor(turn.speaker)
+                                    : "text-muted-foreground",
+                            )}
+                        >
+                            {turn.label}
+                        </span>
+                    )}
+                    <bdi dir="auto">{turn.text}</bdi>
+                </>
+            );
+
+            if (!seekToTime || startTime === null) {
+                return (
+                    <div key={lineNumber} className="leading-relaxed">
+                        {content}
+                    </div>
+                );
+            }
+
+            return (
+                <button
+                    key={lineNumber}
+                    ref={turn === activeTurn ? activeRowRef : undefined}
+                    type="button"
+                    aria-current={turn === activeTurn ? "time" : undefined}
+                    className={cn(
+                        "block w-full cursor-pointer select-text rounded-md px-2 py-1 text-start leading-relaxed wrap-anywhere hover:bg-background/70 focus-visible:outline-2 focus-visible:outline-ring",
+                        startTime === activeTurn?.startTime &&
+                            "bg-primary/15 ring-1 ring-primary/40 ring-inset hover:bg-primary/20",
+                    )}
+                    onClick={(event) => {
+                        const selection = window.getSelection();
+                        if (
+                            event.detail &&
+                            selection &&
+                            !selection.isCollapsed &&
+                            event.currentTarget.contains(selection.anchorNode)
+                        )
+                            return;
+                        seekToTime(startTime);
+                    }}
+                >
+                    {content}
+                </button>
+            );
+        });
+    }, [turns, seekToTime, activeTurn]);
+
+    if (!turns) {
         return (
-            <p
-                className={`whitespace-pre-wrap leading-relaxed ${className ?? ""}`}
-            >
+            <p className={cn("whitespace-pre-wrap leading-relaxed", className)}>
                 {text}
             </p>
         );
     }
 
-    const order: string[] = [];
-    const colorFor = (speaker: string) => {
-        let idx = order.indexOf(speaker);
-        if (idx === -1) {
-            order.push(speaker);
-            idx = order.length - 1;
-        }
-        return SPEAKER_COLORS[idx % SPEAKER_COLORS.length];
-    };
-
-    return (
-        <div className={`space-y-3 ${className ?? ""}`}>
-            {turns.map((t, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: turns are reparsed from the transcript on every render and never reordered
-                <div key={`turn-${i}`} className="leading-relaxed">
-                    {t.speaker && (
-                        <span
-                            className={`font-semibold ${colorFor(t.speaker)} mr-2`}
-                        >
-                            {t.label}
-                        </span>
-                    )}
-                    <span>{t.text}</span>
-                </div>
-            ))}
+    const body = (
+        <div
+            ref={scrollRef}
+            className={cn(hasTimeline ? "space-y-1" : "space-y-3", className)}
+        >
+            {rows}
         </div>
+    );
+    return hasTimeline ? (
+        <div className="space-y-2">
+            <label
+                htmlFor={followId}
+                className="ms-auto flex w-fit cursor-pointer items-center gap-2 text-xs text-muted-foreground"
+            >
+                {uiText("Follow playback")}
+                <Switch
+                    id={followId}
+                    checked={followPlayback}
+                    onCheckedChange={setFollowPlayback}
+                />
+            </label>
+            {body}
+        </div>
+    ) : (
+        body
     );
 }

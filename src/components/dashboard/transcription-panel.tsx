@@ -201,11 +201,11 @@ export function TranscriptionPanel({
                                     ))}
                                 </div>
                             )}
-                            <div className="bg-muted rounded-lg p-4 max-h-96 overflow-y-auto text-sm">
-                                <SpeakerTranscript
-                                    text={activeTranscript.text}
-                                />
-                            </div>
+                            <SpeakerTranscript
+                                key={`${recording.id}:${activeTranscript.source}`}
+                                text={activeTranscript.text}
+                                className="bg-muted rounded-lg p-4 max-h-96 overflow-y-auto text-sm"
+                            />
                             <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
                                 <span className="px-2 py-0.5 rounded bg-muted font-medium">
                                     {transcriptSourceLabel(

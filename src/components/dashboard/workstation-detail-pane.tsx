@@ -84,28 +84,27 @@ export function WorkstationDetailPane({
                 {uiText("Back to recordings")}
             </Button>
             {currentRecording ? (
-                <>
-                    <RecordingPlayer
-                        recording={currentRecording}
-                        initialPlaybackSpeed={initialPlaybackSpeed}
-                        initialVolume={initialVolume}
-                        initialAutoPlayNext={initialAutoPlayNext}
-                        scrubberStyle={scrubberStyle}
-                        onRenamed={onRenamed}
-                        onEnded={() => {
-                            const currentIndex = visibleRecordings.findIndex(
-                                (r) => r.id === currentRecording.id,
+                <RecordingPlayer
+                    recording={currentRecording}
+                    initialPlaybackSpeed={initialPlaybackSpeed}
+                    initialVolume={initialVolume}
+                    initialAutoPlayNext={initialAutoPlayNext}
+                    scrubberStyle={scrubberStyle}
+                    onRenamed={onRenamed}
+                    onEnded={() => {
+                        const currentIndex = visibleRecordings.findIndex(
+                            (r) => r.id === currentRecording.id,
+                        );
+                        if (
+                            currentIndex >= 0 &&
+                            currentIndex < visibleRecordings.length - 1
+                        ) {
+                            onSelectRecording(
+                                visibleRecordings[currentIndex + 1],
                             );
-                            if (
-                                currentIndex >= 0 &&
-                                currentIndex < visibleRecordings.length - 1
-                            ) {
-                                onSelectRecording(
-                                    visibleRecordings[currentIndex + 1],
-                                );
-                            }
-                        }}
-                    />
+                        }
+                    }}
+                >
                     <TranscriptionPanel
                         recording={currentRecording}
                         transcription={currentTranscription}
@@ -113,7 +112,7 @@ export function WorkstationDetailPane({
                         onTranscribe={onTranscribe}
                         onTranscribeComplete={onTranscribeComplete}
                     />
-                </>
+                </RecordingPlayer>
             ) : (
                 <Card>
                     <CardContent className="py-16 text-center">

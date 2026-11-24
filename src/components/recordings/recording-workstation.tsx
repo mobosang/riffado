@@ -192,15 +192,16 @@ export function RecordingWorkstation({
                         initialAutoPlayNext={initialAutoPlayNext}
                         scrubberStyle={scrubberStyle}
                         onRenamed={handleRenamed}
-                    />
-                    <TranscriptionPanel
-                        recording={displayRecording}
-                        transcription={transcription}
-                        transcripts={transcripts}
-                        isTranscribing={isTranscribing}
-                        onTranscribe={handleTranscribe}
-                        onTranscribeComplete={refresh}
-                    />
+                    >
+                        <TranscriptionPanel
+                            recording={displayRecording}
+                            transcription={transcription}
+                            transcripts={transcripts}
+                            isTranscribing={isTranscribing}
+                            onTranscribe={handleTranscribe}
+                            onTranscribeComplete={refresh}
+                        />
+                    </RecordingPlayer>
 
                     {/* Metadata */}
                     <Card>

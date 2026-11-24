@@ -78,10 +78,20 @@ export function usePlaybackEngine({
     const [volume, setVolume] = useState(initialVolume);
     const [playbackSpeed, setPlaybackSpeed] = useState(initialPlaybackSpeed);
     const [autoPlayNext] = useState(initialAutoPlayNext);
+    const [playbackRecordingId, setPlaybackRecordingId] = useState(
+        recording.id,
+    );
     const audioRef = useRef<HTMLAudioElement>(null);
-    const isSeekingRef = useRef(false);
+    const pendingSeekRef = useRef<number | null>(null);
     const isPlayingRef = useRef(false);
     const lastSourceRefreshRef = useRef(0);
+
+    if (playbackRecordingId !== recording.id) {
+        setPlaybackRecordingId(recording.id);
+        setCurrentTime(0);
+        setDuration(0);
+        setIsPlaying(false);
+    }
 
     useEffect(() => {
         isPlayingRef.current = isPlaying;
@@ -90,9 +100,7 @@ export function usePlaybackEngine({
     // Reset transport state and re-point src whenever the recording
     // *id* changes. Filename edits must not remount playback.
     useEffect(() => {
-        setCurrentTime(0);
-        setDuration(0);
-        setIsPlaying(false);
+        pendingSeekRef.current = null;
         if (audioRef.current) {
             audioRef.current.currentTime = 0;
             audioRef.current.src = playbackSource(recording.id);
@@ -112,6 +120,34 @@ export function usePlaybackEngine({
         }
     }, [playbackSpeed]);
 
+    const applySeek = useCallback(
+        (audio: HTMLAudioElement, seconds: number) => {
+            const time = Math.max(
+                0,
+                Number.isFinite(audio.duration)
+                    ? Math.min(audio.duration, seconds)
+                    : seconds,
+            );
+            audio.currentTime = time;
+            setCurrentTime(time);
+        },
+        [],
+    );
+
+    const seekToTime = useCallback(
+        (seconds: number) => {
+            const audio = audioRef.current;
+            if (!audio || !Number.isFinite(seconds)) return;
+            if (audio.readyState < HTMLMediaElement.HAVE_METADATA) {
+                pendingSeekRef.current = seconds;
+                return;
+            }
+            pendingSeekRef.current = null;
+            applySeek(audio, seconds);
+        },
+        [applySeek],
+    );
+
     // Listener wiring. Re-runs whenever the recording changes (so the
     // ended handler closes over the right onEnded / autoPlayNext) but
     // the listener identities themselves are stable within a single
@@ -129,7 +165,7 @@ export function usePlaybackEngine({
         let sourceLoaded = audio.readyState >= HTMLMediaElement.HAVE_METADATA;
 
         const updateTime = () => {
-            if (!isSeekingRef.current) {
+            if (!audio.seeking) {
                 setCurrentTime(audio.currentTime);
             }
         };
@@ -145,15 +181,17 @@ export function usePlaybackEngine({
             }
         };
         const handleSeeked = () => {
-            isSeekingRef.current = false;
             setCurrentTime(audio.currentTime);
         };
         let pendingResumeAt: number | null = null;
         const restorePosition = () => {
-            if (pendingResumeAt === null) return;
-            audio.currentTime = pendingResumeAt;
+            const requestedTime = pendingSeekRef.current ?? pendingResumeAt;
+            if (requestedTime === null) return;
+            const reloading = pendingResumeAt !== null;
+            pendingSeekRef.current = null;
             pendingResumeAt = null;
-            if (isPlayingRef.current) {
+            applySeek(audio, requestedTime);
+            if (reloading && isPlayingRef.current) {
                 audio.play().catch(() => setIsPlaying(false));
             }
         };
@@ -221,7 +259,7 @@ export function usePlaybackEngine({
             audio.removeEventListener("seeked", handleSeeked);
             audio.removeEventListener("error", handleError);
         };
-    }, [recording.id, autoPlayNext, onEnded]);
+    }, [recording.id, autoPlayNext, onEnded, applySeek]);
 
     const togglePlayPause = useCallback(() => {
         if (!audioRef.current) return;
@@ -243,22 +281,19 @@ export function usePlaybackEngine({
      * waveform click handler. Centralising means seek semantics stay
      * identical regardless of which control the user touches.
      */
-    const seekToRatio = useCallback((ratio: number) => {
-        const audio = audioRef.current;
-        if (!audio) return;
-        const audioDuration = audio.duration;
-        if (!audioDuration || Number.isNaN(audioDuration)) {
-            audio.load();
-            return;
-        }
-        const newTime = Math.max(
-            0,
-            Math.min(audioDuration, ratio * audioDuration),
-        );
-        isSeekingRef.current = true;
-        audio.currentTime = newTime;
-        setCurrentTime(newTime);
-    }, []);
+    const seekToRatio = useCallback(
+        (ratio: number) => {
+            const audio = audioRef.current;
+            if (!audio) return;
+            const audioDuration = audio.duration;
+            if (!audioDuration || Number.isNaN(audioDuration)) {
+                audio.load();
+                return;
+            }
+            seekToTime(ratio * audioDuration);
+        },
+        [seekToTime],
+    );
 
     /**
      * Seek by signed seconds offset (used by keyboard left/right).
@@ -266,16 +301,10 @@ export function usePlaybackEngine({
      */
     const seekRelative = useCallback(
         (deltaSeconds: number) => {
-            const audio = audioRef.current;
-            if (!audio || duration <= 0) return;
-            const newTime = Math.max(
-                0,
-                Math.min(duration, currentTime + deltaSeconds),
-            );
-            audio.currentTime = newTime;
-            setCurrentTime(newTime);
+            if (duration <= 0) return;
+            seekToTime(currentTime + deltaSeconds);
         },
-        [currentTime, duration],
+        [currentTime, duration, seekToTime],
     );
 
     const cycleSpeed = useCallback(() => {
@@ -310,6 +339,7 @@ export function usePlaybackEngine({
         setVolume,
         playbackSpeed,
         togglePlayPause,
+        seekToTime,
         seekToRatio,
         seekRelative,
         cycleSpeed,
