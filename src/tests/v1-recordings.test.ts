@@ -43,6 +43,7 @@ const recording = {
     isTrash: false,
     waveformPeaks: null,
     report: null,
+    transcriptionError: null,
     deletedAt: null,
     createdAt: now,
     updatedAt: now,

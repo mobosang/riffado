@@ -273,6 +273,7 @@ describe("Issue #79 - v1 incremental update timestamps", () => {
         expect(tx.update).toHaveBeenCalledWith(recordings);
         expect(recordingBumpSet).toHaveBeenCalledWith({
             updatedAt: expect.any(Date),
+            transcriptionError: null,
         });
     });
 

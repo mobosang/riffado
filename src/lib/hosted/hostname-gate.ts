@@ -47,7 +47,8 @@ export function decideHostnameGate(input: GateInput): GateDecision {
 
     if (!adminHostname) return { kind: "next" };
 
-    const onAdminHost = requestHostname === adminHostname;
+    const onAdminHost =
+        requestHostname.split(":")[0].toLowerCase() === adminHostname;
     const adminPath = isAdminPath(pathname);
 
     if (adminPath && !onAdminHost) return { kind: "not-found" };

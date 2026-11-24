@@ -41,6 +41,6 @@ export const config = {
     // App Router handlers and must still hit `decideHostnameGate` when
     // ADMIN_HOSTNAME is set. `_next/static` already covers Next chunks.
     matcher: [
-        "/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|woff|woff2|ttf|otf|map)).*)",
+        "/((?!api/recordings/upload/?$|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|woff|woff2|ttf|otf|map)).*)",
     ],
 };

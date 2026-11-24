@@ -18,46 +18,72 @@
 import { readFile } from "node:fs/promises";
 import * as path from "node:path";
 import { parseBuffer } from "music-metadata";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getAudioDurationMs } from "@/lib/audio/duration";
+import { runFfmpeg } from "@/lib/transcription/ffmpeg";
+
+vi.mock("music-metadata", { spy: true });
+vi.mock("@/lib/transcription/ffmpeg", () => ({ runFfmpeg: vi.fn() }));
 
 const FIXTURE = path.join(__dirname, "..", "fixtures", "sample.mp3");
 
 describe("issue #58 — upload duration parsing without ffprobe", () => {
+    beforeEach(() => vi.clearAllMocks());
+
     it("reads MP3 duration from a Buffer via music-metadata (no ffprobe spawn)", async () => {
         const buffer = await readFile(FIXTURE);
+        const duration = await getAudioDurationMs(buffer, "audio/mpeg");
 
-        const { format } = await parseBuffer(
-            buffer,
-            { mimeType: "audio/mpeg", size: buffer.byteLength },
-            { duration: true },
-        );
-
-        // Fixture is a 1-second 440 Hz sine; allow generous tolerance for
-        // MP3 frame alignment on either end. Duration is the only thing
-        // this regression cares about — container/codec assertions would
-        // just be brittle coupling to music-metadata internals.
-        expect(format.duration).toBeGreaterThan(0.5);
-        expect(format.duration).toBeLessThan(2);
+        expect(duration).toBeGreaterThan(500);
+        expect(duration).toBeLessThan(2000);
+        expect(runFfmpeg).not.toHaveBeenCalled();
     });
 
     it("returns no duration for a non-audio buffer (caller turns this into 422)", async () => {
         const garbage = Buffer.from("this is definitely not an audio file");
 
-        // music-metadata may either throw or return undefined duration for
-        // unrecognized input. The route helper treats both as "duration 0
-        // → reject with 422", so this test accepts either outcome.
-        let duration: number | undefined;
+        const errorLog = vi
+            .spyOn(console, "error")
+            .mockImplementation(() => {});
         try {
-            const { format } = await parseBuffer(
-                garbage,
-                { mimeType: "audio/mpeg", size: garbage.byteLength },
-                { duration: true },
-            );
-            duration = format.duration;
-        } catch {
-            duration = undefined;
+            await expect(
+                getAudioDurationMs(garbage, "audio/mpeg"),
+            ).resolves.toBe(0);
+            expect(runFfmpeg).not.toHaveBeenCalled();
+        } finally {
+            errorLog.mockRestore();
         }
+    });
 
-        expect(duration ?? 0).toBe(0);
+    it("uses the final decoded timestamp when an Ogg Opus recording has no duration metadata", async () => {
+        const buffer = Buffer.from("OggS");
+        vi.mocked(parseBuffer).mockResolvedValueOnce({
+            format: {
+                container: "Ogg",
+                codec: "Opus",
+                tagTypes: [],
+                trackInfo: [],
+            },
+            common: {
+                track: { no: null, of: null },
+                disk: { no: null, of: null },
+                movementIndex: { no: null, of: null },
+            },
+            native: {},
+            quality: { warnings: [] },
+        });
+        vi.mocked(runFfmpeg).mockResolvedValueOnce(
+            Buffer.from(
+                "out_time_us=1000\nprogress=continue\nout_time_us=2500000\nprogress=end\n",
+            ),
+        );
+
+        await expect(getAudioDurationMs(buffer, "audio/ogg")).resolves.toBe(
+            2500,
+        );
+        expect(runFfmpeg).toHaveBeenCalledWith(
+            buffer,
+            expect.arrayContaining(["pipe:0", "pipe:1", "0:a:0"]),
+        );
     });
 });

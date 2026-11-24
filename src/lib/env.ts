@@ -165,6 +165,9 @@ const baseEnvSchema = z.object({
         ),
 
     /** Compress OpenAI-style transcription inputs above this byte threshold. */
+    RIFFADO_PLAUD_DIARIZATION_URL: z.string().url().optional(),
+    RIFFADO_PLAUD_DIARIZATION_SINCE: z.string().datetime().optional(),
+
     WHISPER_MAX_BYTES: z
         .string()
         .regex(/^\d+$/, "WHISPER_MAX_BYTES must be a positive integer")
@@ -793,6 +796,10 @@ function validateEnv(): Env {
             BACKGROUND_SYNC_ENABLED: process.env.BACKGROUND_SYNC_ENABLED,
             BACKGROUND_SYNC_INTERVAL_MS:
                 process.env.BACKGROUND_SYNC_INTERVAL_MS,
+            RIFFADO_PLAUD_DIARIZATION_URL:
+                process.env.RIFFADO_PLAUD_DIARIZATION_URL,
+            RIFFADO_PLAUD_DIARIZATION_SINCE:
+                process.env.RIFFADO_PLAUD_DIARIZATION_SINCE,
             WHISPER_MAX_BYTES: process.env.WHISPER_MAX_BYTES,
             WHISPER_COMPRESS: process.env.WHISPER_COMPRESS,
             WHISPER_COMPRESS_BITRATE_KBPS:

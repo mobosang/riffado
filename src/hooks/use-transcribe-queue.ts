@@ -59,7 +59,6 @@ export function useTranscribeQueue({ onTranscribeComplete }: Options) {
                 );
                 if (response.ok) {
                     toast.success(uiText("Transcription complete"));
-                    onTranscribeComplete();
                 } else {
                     const error = await response.json();
                     toast.error(
@@ -73,6 +72,7 @@ export function useTranscribeQueue({ onTranscribeComplete }: Options) {
             } catch {
                 toast.error(uiText("Failed to transcribe recording"));
             } finally {
+                onTranscribeComplete();
                 // Per-id clear only -- don't touch any global "is
                 // transcribing" flag (there isn't one), so a concurrent
                 // transcribe on a different recording keeps its own

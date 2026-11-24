@@ -308,6 +308,7 @@ export const recordings = pgTable(
         // so payload is ~3–6 KB. Used purely for visualization — no
         // audio reconstruction is possible from these values.
         report: jsonb("report"),
+        transcriptionError: varchar("transcription_error", { length: 64 }),
         waveformPeaks: jsonb("waveform_peaks"),
         // Soft-delete tombstone. Set when the user deletes a recording from
         // Riffado's UI. Sync skips tombstoned rows so re-syncing from Plaud

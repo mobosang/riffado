@@ -161,6 +161,16 @@ export function TranscriptionPanel({
                     </div>
                 </CardHeader>
                 <CardContent>
+                    {recording.transcriptionError === "DIARIZATION_FAILED" && (
+                        <p
+                            role="alert"
+                            className="mb-4 rounded-lg border border-destructive/40 p-3 text-sm text-destructive"
+                        >
+                            {uiText(
+                                "Speaker recognition failed. Your existing transcript is unchanged. Check the local recognition service and retry.",
+                            )}
+                        </p>
+                    )}
                     {isTranscribing ? (
                         <div className="flex flex-col items-center justify-center py-12">
                             <div className="animate-spin size-8 border-2 border-primary border-t-transparent rounded-full mb-4" />

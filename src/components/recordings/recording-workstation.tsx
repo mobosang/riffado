@@ -99,7 +99,6 @@ export function RecordingWorkstation({
 
             if (response.ok) {
                 toast.success(uiText("Transcription complete"));
-                refresh();
             } else {
                 const error = await response.json();
                 toast.error(
@@ -114,6 +113,7 @@ export function RecordingWorkstation({
             toast.error(uiText("Failed to transcribe recording"));
         } finally {
             setIsTranscribing(false);
+            refresh();
         }
     }, [uiText, recording.id, refresh]);
 

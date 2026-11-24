@@ -1,4 +1,7 @@
 {
+    "Speaker recognition failed. Your existing transcript is unchanged. Check the local recognition service and retry.": "说话人识别失败，已有转写未被修改。请检查本地识别服务后重试。",
+    "When a local speaker recognition service is configured, enabling this uses it for automatic, manual and uploaded recordings, including re-transcription. Otherwise, support depends on your provider. Browser transcription is separate.": "已配置本地说话人识别服务时，开启后自动转写、手动转写、重新转写和上传的录音都会使用它。未配置时，支持情况取决于转写服务。浏览器转写独立运行。",
+    "A hint for providers that support it. The local recognition service always detects the speaker count automatically.": "仅对支持人数提示的服务生效。本地识别服务始终自动识别说话人数。",
     "Please sign in again.": "请重新登录。",
     "You do not have permission to perform this action.": "你没有执行此操作的权限。",
     "This account has been suspended.": "此账户已被停用。",

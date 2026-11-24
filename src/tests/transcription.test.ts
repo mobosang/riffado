@@ -483,6 +483,7 @@ describe("Transcription", () => {
             expect(txUpdate).toHaveBeenCalledWith(recordings);
             expect(recordingBumpSet).toHaveBeenCalledWith({
                 updatedAt: expect.any(Date),
+                transcriptionError: null,
             });
             expect(titleUpdateSet).toHaveBeenCalledWith({
                 filename: "v1:encrypted:Generated Title",

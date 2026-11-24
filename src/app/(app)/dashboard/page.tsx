@@ -34,6 +34,7 @@ export default async function DashboardPage() {
                 filesize: recordings.filesize,
                 deviceSn: recordings.deviceSn,
                 waveformPeaks: recordings.waveformPeaks,
+                transcriptionError: recordings.transcriptionError,
             })
             .from(recordings)
             .where(

@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, lt } from "drizzle-orm";
 import { db } from "@/db";
 import {
     aiEnhancements,
@@ -52,6 +52,11 @@ import { geminiTranscribe } from "@/lib/transcription/gemini-transcribe";
 import { createTranscriptionClient } from "@/lib/transcription/openai-client";
 import { transcribeOpenAIDiarized } from "@/lib/transcription/openai-diarized-transcribe";
 import { upsertTranscription } from "@/lib/transcription/persist";
+import {
+    DiarizationError,
+    isLocalDiarizationEnabled,
+    transcribeWithSpeakerLabels,
+} from "@/lib/transcription/plaud-diarization";
 import { emitEvent } from "@/lib/webhooks/emit";
 
 /**
@@ -66,6 +71,7 @@ export type TranscribeErrorCode =
     | "HOSTED_LOCKED_OUT"
     | "MYNAH_BUDGET_EXHAUSTED"
     | "FILE_TOO_LARGE"
+    | "DIARIZATION_FAILED"
     | "TRANSCRIPTION_FAILED";
 
 export interface StoreBrowserTranscriptionInput {
@@ -187,7 +193,7 @@ export async function storeBrowserTranscription(
 
             await tx
                 .update(recordings)
-                .set({ updatedAt: new Date() })
+                .set({ updatedAt: new Date(), transcriptionError: null })
                 .where(
                     and(
                         eq(recordings.id, recordingId),
@@ -436,8 +442,54 @@ async function transcribeRecordingInner(
         let detectedLanguage: string | null;
         let persistProvider: string;
         let persistModel: string;
+        let usedPlaudDiarization = false;
 
-        if (selection.kind === "managed") {
+        if (
+            opts.providerId &&
+            selection.kind === "credential" &&
+            !credentials
+        ) {
+            return {
+                success: false,
+                error: "No transcription API configured",
+                errorCode: "NO_TRANSCRIPTION_PROVIDER",
+            };
+        }
+
+        if (isLocalDiarizationEnabled(diarize)) {
+            try {
+                const storage = await createUserStorageProvider(userId);
+                const audio = await storage.downloadFile(recording.storagePath);
+                transcriptionText = await transcribeWithSpeakerLabels(
+                    audio,
+                    recording.duration,
+                );
+            } catch (error) {
+                const failure =
+                    error instanceof DiarizationError
+                        ? error
+                        : new DiarizationError();
+                await db
+                    .update(recordings)
+                    .set({ transcriptionError: "DIARIZATION_FAILED" })
+                    .where(
+                        and(
+                            eq(recordings.id, recordingId),
+                            eq(recordings.userId, userId),
+                            lt(
+                                recordings.updatedAt,
+                                new Date(recording.updatedAt.getTime() + 1),
+                            ),
+                            isNull(recordings.deletedAt),
+                        ),
+                    );
+                throw failure;
+            }
+            detectedLanguage = null;
+            persistProvider = "local-diarization";
+            persistModel = "nemotron3-diarize+fireredasr2-aed-fp16";
+            usedPlaudDiarization = true;
+        } else if (selection.kind === "managed") {
             const result = await runManagedTranscription();
             transcriptionText = result.text;
             detectedLanguage = result.detectedLanguage;
@@ -764,6 +816,9 @@ async function transcribeRecordingInner(
                     await generateSummaryForRecording(userId, recordingId, {
                         presetId: autoSummarizePreset ?? undefined,
                         trigger: "auto",
+                        transcriptSource: usedPlaudDiarization
+                            ? "riffado"
+                            : undefined,
                     });
                     await emitEvent("summary.completed", userId, recordingId);
                 } catch (error) {
@@ -830,7 +885,10 @@ async function transcribeRecordingInner(
             success: false,
             error:
                 error instanceof Error ? error.message : "Transcription failed",
-            errorCode: "TRANSCRIPTION_FAILED",
+            errorCode:
+                error instanceof DiarizationError
+                    ? "DIARIZATION_FAILED"
+                    : "TRANSCRIPTION_FAILED",
             failureKind: failure.kind,
             providerStatus: failure.status,
             managedProvider: usedManaged,

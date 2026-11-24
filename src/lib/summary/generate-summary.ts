@@ -35,6 +35,7 @@ export interface GenerateSummaryOptions {
      */
     presetId?: string;
     report?: boolean;
+    transcriptSource?: "riffado" | "plaud";
     /** Analytics `trigger` property on the `summary_generated` event. */
     trigger?: "manual" | "auto";
 }
@@ -108,6 +109,9 @@ export async function generateSummaryForRecording(
             and(
                 eq(transcriptions.recordingId, recordingId),
                 eq(transcriptions.userId, userId),
+                opts.transcriptSource
+                    ? eq(transcriptions.source, opts.transcriptSource)
+                    : undefined,
             ),
         )
         .limit(1);

@@ -532,7 +532,7 @@ export function TranscriptionSection() {
                         </Label>
                         <p className="text-sm text-muted-foreground">
                             {uiText(
-                                "Splits the transcript by speaker (Speaker 1:, Speaker 2:). Supported by ElevenLabs Scribe; other providers ignore it.",
+                                "When a local speaker recognition service is configured, enabling this uses it for automatic, manual and uploaded recordings, including re-transcription. Otherwise, support depends on your provider. Browser transcription is separate.",
                             )}
                         </p>
                     </div>
@@ -598,7 +598,7 @@ export function TranscriptionSection() {
                         </Select>
                         <p className="text-xs text-muted-foreground">
                             {uiText(
-                                "A hint, not a hard limit. Auto works well for most recordings.",
+                                "A hint for providers that support it. The local recognition service always detects the speaker count automatically.",
                             )}
                         </p>
                     </div>

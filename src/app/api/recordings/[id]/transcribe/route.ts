@@ -73,6 +73,8 @@ function mapErrorCodeToAppError(
             return new AppError(ErrorCode.MYNAH_BUDGET_EXHAUSTED, msg, 402);
         case "FILE_TOO_LARGE":
             return new AppError(ErrorCode.FILE_TOO_LARGE, msg, 413);
+        case "DIARIZATION_FAILED":
+            return new AppError(ErrorCode.DIARIZATION_FAILED, msg, 502);
         default:
             return new AppError(ErrorCode.TRANSCRIPTION_FAILED, msg, 500);
     }

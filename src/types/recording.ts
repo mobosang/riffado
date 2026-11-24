@@ -8,6 +8,7 @@ export type RecordingQueryResult = Pick<
 
 export type Recording = Omit<RecordingQueryResult, "startTime"> & {
     startTime: string;
+    transcriptionError?: string | null;
     /**
      * Status flags surfaced into list rows so the user can scan which
      * recordings have already been processed. Both default to `false`

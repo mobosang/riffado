@@ -295,6 +295,13 @@
       "when": 1795498788857,
       "tag": "0041_large_wolverine",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1795501408143,
+      "tag": "0042_goofy_bruce_banner",
+      "breakpoints": true
     }
   ]
 }

@@ -1,16 +1,17 @@
 import { createHash } from "node:crypto";
 import * as path from "node:path";
-import { parseBuffer } from "music-metadata";
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { recordings } from "@/db/schema";
+import { getAudioDurationMs } from "@/lib/audio/duration";
 import { requireApiSession } from "@/lib/auth-server";
 import { encryptText } from "@/lib/encryption/fields";
 import { isHostedLockedOut } from "@/lib/entitlements";
 import { env } from "@/lib/env";
 import { AppError, apiHandler, ErrorCode } from "@/lib/errors";
 import { enforceStorageCap } from "@/lib/hosted/billing/storage-cap";
+import { decideHostnameGate } from "@/lib/hosted/hostname-gate";
 import { captureServerEvent } from "@/lib/posthog-server";
 import { deleteStorageObjectOrQueue } from "@/lib/storage/delete-object";
 import { createUserStorageProvider } from "@/lib/storage/factory";
@@ -28,34 +29,43 @@ const ACCEPTED_EXTENSIONS = new Set([
     ".flac",
 ]);
 
-async function getAudioDurationMs(
-    buffer: Uint8Array,
-    mimeType: string,
-): Promise<number> {
-    // Pure-JS metadata parse — no system ffprobe binary required. The
-    // `duration: true` option forces a full scan when the container
-    // doesn't expose duration in its headers (e.g. Chrome-recorded
-    // WebM/Opus, raw ADTS AAC). MIME hint short-circuits format sniffing.
-    try {
-        const { format } = await parseBuffer(
-            buffer,
-            { mimeType, size: buffer.byteLength },
-            { duration: true },
-        );
-        const sec = format.duration ?? 0;
-        if (sec > 0) return Math.round(sec * 1000);
-        return 0;
-    } catch (err) {
-        // Surface the real reason instead of silently returning 0 — the
-        // caller turns 0 into a 422 "invalid audio stream" response, and
-        // a swallowed parse error there is the exact bug class that made
-        // #58 hard to diagnose.
-        console.error("Audio metadata parse failed:", err);
-        return 0;
-    }
+function uploadHostIsBlocked(request: Request): boolean {
+    return (
+        decideHostnameGate({
+            requestHostname: request.headers.get("host") ?? "",
+            pathname: "/api/recordings/upload",
+            adminHostname: env.ADMIN_HOSTNAME,
+        }).kind === "not-found"
+    );
+}
+
+function unsupportedMethod(request: Request) {
+    return new Response(null, {
+        status: uploadHostIsBlocked(request) ? 404 : 405,
+    });
+}
+
+export {
+    unsupportedMethod as DELETE,
+    unsupportedMethod as GET,
+    unsupportedMethod as HEAD,
+    unsupportedMethod as PATCH,
+    unsupportedMethod as PUT,
+};
+
+export function OPTIONS(request: Request) {
+    if (uploadHostIsBlocked(request))
+        return new Response(null, { status: 404 });
+    return new Response(null, {
+        status: 204,
+        headers: { Allow: "OPTIONS, POST" },
+    });
 }
 
 export const POST = apiHandler(async (request: Request) => {
+    if (uploadHostIsBlocked(request))
+        return new Response(null, { status: 404 });
+
     const session = await requireApiSession(request);
 
     if (await isHostedLockedOut(session.user.id)) {

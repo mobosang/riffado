@@ -142,7 +142,12 @@ export async function upsertTranscription(
 
             await tx
                 .update(recordings)
-                .set({ updatedAt: new Date() })
+                .set({
+                    updatedAt: new Date(),
+                    ...(source === "riffado"
+                        ? { transcriptionError: null }
+                        : {}),
+                })
                 .where(
                     and(
                         eq(recordings.id, recordingId),
