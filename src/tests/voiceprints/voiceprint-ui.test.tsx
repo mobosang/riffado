@@ -18,36 +18,87 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
-it("enrolls a speaker from the recording action", async () => {
+const recordingEndpoint = "/api/recordings/test-recording/voiceprints";
+const savedVoiceprints = {
+    saved: [{ id: "speaker-a", name: "王工", sampleCount: 1 }],
+    candidates: [],
+};
+const extractedVoiceprints = {
+    saved: [],
+    candidates: [
+        {
+            speaker: "说话人 1",
+            proof: "sealed-proof",
+            clips: [{ start: 1, text: "片段", preview: "YQ==" }],
+        },
+    ],
+};
+
+it("generates new samples once and opens saved voiceprints without generating again", async () => {
     const fetchMock = vi
         .fn()
-        .mockResolvedValueOnce(
-            Response.json({
-                candidates: [
-                    {
-                        speaker: "说话人 1",
-                        proof: "sealed-proof",
-                        clips: [{ start: 1, text: "片段", preview: "YQ==" }],
-                    },
-                ],
-            }),
-        )
-        .mockResolvedValueOnce(Response.json({ success: true }));
+        .mockResolvedValueOnce(Response.json({ saved: [], candidates: [] }))
+        .mockResolvedValueOnce(Response.json(extractedVoiceprints))
+        .mockResolvedValueOnce(Response.json({ success: true }))
+        .mockResolvedValueOnce(Response.json(savedVoiceprints));
     vi.stubGlobal("fetch", fetchMock);
     render(<VoiceprintButton recordingId="test-recording" />);
-    fireEvent.click(
-        screen.getByRole("button", { name: "Generate voiceprints" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Voiceprints" }));
     const input = await screen.findByRole("textbox", { name: "Speaker name" });
     fireEvent.change(input, { target: { value: "王工" } });
     fireEvent.click(screen.getByRole("button", { name: "Save voiceprints" }));
     expect(await screen.findByRole("button", { name: "Saved" })).toBeDefined();
     expect(fetchMock).toHaveBeenLastCalledWith(
-        "/api/recordings/test-recording/voiceprints",
+        recordingEndpoint,
         expect.objectContaining({
             method: "PUT",
             body: JSON.stringify({ name: "王工", proof: "sealed-proof" }),
         }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Voiceprints" }));
+    expect(await screen.findByText("王工")).toBeDefined();
+    expect(screen.queryByRole("textbox", { name: "Speaker name" })).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
+        recordingEndpoint,
+        expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock).toHaveBeenLastCalledWith(
+        recordingEndpoint,
+        expect.objectContaining({ method: "GET" }),
+    );
+});
+
+it("reads a previous session's saved voiceprints and extracts only on request", async () => {
+    const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(Response.json(savedVoiceprints))
+        .mockResolvedValueOnce(
+            Response.json({
+                ...savedVoiceprints,
+                candidates: extractedVoiceprints.candidates,
+            }),
+        );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VoiceprintButton recordingId="test-recording" />);
+    fireEvent.click(screen.getByRole("button", { name: "Voiceprints" }));
+    expect(await screen.findByText("王工")).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+        recordingEndpoint,
+        expect.objectContaining({ method: "GET" }),
+    );
+
+    fireEvent.click(
+        screen.getByRole("button", { name: "Extract voiceprints again" }),
+    );
+    expect(
+        await screen.findByRole("textbox", { name: "Speaker name" }),
+    ).toBeDefined();
+    expect(fetchMock).toHaveBeenLastCalledWith(
+        `${recordingEndpoint}?regenerate=1`,
+        expect.objectContaining({ method: "POST" }),
     );
 });
 

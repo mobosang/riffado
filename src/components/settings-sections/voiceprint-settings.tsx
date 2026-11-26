@@ -192,7 +192,7 @@ export function VoiceprintSettings() {
                 {!data.profiles.length && (
                     <p className="mt-3 text-muted-foreground">
                         {uiText(
-                            "Open a recording and use Generate voiceprints to enroll someone.",
+                            "Open Voiceprints on a recording to enroll someone.",
                         )}
                     </p>
                 )}

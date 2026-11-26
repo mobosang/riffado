@@ -17,11 +17,13 @@ In **Settings → AI → Providers → Add voiceprint service**, use
 `3dspeaker/campplus-zh-en-16k-common-advanced`. Keep the service on the Docker
 network. It has no HTTP authentication and needs no published port.
 
-Open an existing recording and choose **Generate voiceprints**. Listen to the
-selected clips and save the corresponding names. To use enrolled names for an
-older recording, re-transcribe it with speaker labels enabled and regenerate
-its report. Automatic matches require two clean clips to agree on a single
-person. Uncertain speakers retain their numbered labels.
+Open **Voiceprints** on a recording. The dialog shows any saved names and
+extracts samples if the recording has no saved voiceprints.
+Listen to the clips and save the corresponding names. Use **Extract
+voiceprints again** to explicitly generate another set of samples. To use
+enrolled names for an older recording, re-transcribe it with speaker labels
+enabled and regenerate its report. Automatic matches require two clean clips
+to agree on a single person. Uncertain speakers retain their numbered labels.
 
 ## Compatible encoders and library exchange
 

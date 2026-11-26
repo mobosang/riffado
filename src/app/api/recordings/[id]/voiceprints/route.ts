@@ -17,6 +17,8 @@ import {
 } from "@/lib/transcription/plaud-diarization";
 import { extractSpeakerSamples } from "@/lib/voiceprints/extract";
 import {
+    type RecordingVoiceprints,
+    type VoiceProfile,
     type VoiceprintCandidate,
     voiceName,
     voiceSample,
@@ -32,6 +34,7 @@ import { readVoiceprintJson } from "@/lib/voiceprints/read-json";
 
 type Context = { params: Promise<{ id: string }> };
 const LIMIT = 512 * 1024 ** 2;
+const PRIVATE_RESPONSE = { headers: { "Cache-Control": "private, no-store" } };
 const proofSchema = z.object({
     type: z.literal("riffado.voiceprint-enrollment"),
     userId: z.string(),
@@ -66,12 +69,43 @@ async function activeRecording(userId: string, id: string) {
     return recording;
 }
 
+function savedForRecording(
+    profiles: VoiceProfile[],
+    recordingId: string,
+): RecordingVoiceprints["saved"] {
+    return profiles.flatMap(({ id, name, samples }) => {
+        const sampleCount = samples.filter(
+            ({ source }) => source?.recordingId === recordingId,
+        ).length;
+        return sampleCount ? [{ id, name, sampleCount }] : [];
+    });
+}
+
+export const GET = apiHandler<Context>(async (request, context) => {
+    const { user } = await requireApiSession(request);
+    requireSelfHostedVoiceprints();
+    const { id } = await (context as Context).params;
+    await activeRecording(user.id, id);
+    const { profiles } = await getVoiceprintLibrary(user.id);
+    return NextResponse.json(
+        { saved: savedForRecording(profiles, id), candidates: [] },
+        PRIVATE_RESPONSE,
+    );
+});
+
 export const POST = apiHandler<Context>(async (request, context) => {
     const { user } = await requireApiSession(request);
     requireSelfHostedVoiceprints();
     const { id } = await (context as Context).params;
     const recording = await activeRecording(user.id, id);
     const { provider, profiles } = await getVoiceprintLibrary(user.id);
+    const saved = savedForRecording(profiles, id);
+    if (
+        saved.length &&
+        new URL(request.url).searchParams.get("regenerate") !== "1"
+    ) {
+        return NextResponse.json({ saved, candidates: [] }, PRIVATE_RESPONSE);
+    }
     if (!provider) {
         throw new AppError(
             ErrorCode.AI_PROVIDER_NOT_CONFIGURED,
@@ -147,10 +181,7 @@ export const POST = apiHandler<Context>(async (request, context) => {
             }),
         }),
     );
-    return NextResponse.json(
-        { candidates },
-        { headers: { "Cache-Control": "private, no-store" } },
-    );
+    return NextResponse.json({ saved, candidates }, PRIVATE_RESPONSE);
 });
 
 export const PUT = apiHandler<Context>(async (request, context) => {

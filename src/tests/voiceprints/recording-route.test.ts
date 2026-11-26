@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { POST, PUT } from "@/app/api/recordings/[id]/voiceprints/route";
+import { GET, POST, PUT } from "@/app/api/recordings/[id]/voiceprints/route";
 import { db } from "@/db";
 import { encryptJSON } from "@/lib/encryption";
 import { env } from "@/lib/env";
+import { createUserStorageProvider } from "@/lib/storage/factory";
 import type {
+    RecordingVoiceprints,
     VoiceProfile,
     VoiceprintCandidate,
     VoiceSample,
@@ -65,6 +67,11 @@ const sample: VoiceSample = {
     source: { recordingId: "rec-a", start: 1, end: 5 },
 };
 let profiles: VoiceProfile[];
+const savedProfile: VoiceProfile = {
+    id: "profile-a",
+    name: "王工",
+    samples: [sample],
+};
 
 function save(proof: string, name = "王工") {
     return PUT(
@@ -87,13 +94,77 @@ beforeEach(() => {
             }),
         }),
     } as unknown as ReturnType<typeof db.select>);
-    vi.mocked(getVoiceprintLibrary).mockResolvedValue({ provider, profiles });
+    vi.mocked(getVoiceprintLibrary).mockImplementation(async () => ({
+        provider,
+        profiles,
+    }));
     vi.mocked(updateVoiceProfiles).mockImplementation(async (_id, update) => {
         profiles = update(profiles, provider);
     });
 });
 
 describe("voiceprint enrollment", () => {
+    it("reads only the current recording's saved profiles with no model configured", async () => {
+        profiles = [
+            {
+                ...savedProfile,
+                samples: [sample, { ...sample, source: undefined }],
+            },
+            {
+                ...savedProfile,
+                id: "profile-b",
+                name: "李工",
+                samples: [
+                    {
+                        ...sample,
+                        source: { recordingId: "rec-b", start: 1, end: 5 },
+                    },
+                ],
+            },
+        ];
+        vi.mocked(getVoiceprintLibrary).mockResolvedValueOnce({
+            provider: null,
+            profiles,
+        });
+        const response = await GET(new Request(url), context);
+        expect(response.status).toBe(200);
+        expect(response.headers.get("cache-control")).toBe("private, no-store");
+        expect(await response.json()).toEqual({
+            saved: [{ id: "profile-a", name: "王工", sampleCount: 1 }],
+            candidates: [],
+        });
+        expect(getVoiceprintLibrary).toHaveBeenCalledWith("user-a");
+        expect(createUserStorageProvider).not.toHaveBeenCalled();
+    });
+
+    it("reuses saved data even if it was enrolled after the UI checked", async () => {
+        const initial = await GET(new Request(url), context);
+        expect((await initial.json()).saved).toEqual([]);
+        profiles = [savedProfile];
+        const response = await POST(
+            new Request(url, { method: "POST" }),
+            context,
+        );
+        expect(await response.json()).toEqual({
+            saved: [{ id: "profile-a", name: "王工", sampleCount: 1 }],
+            candidates: [],
+        });
+        expect(createUserStorageProvider).not.toHaveBeenCalled();
+    });
+
+    it("allows explicit extraction on a recording with saved voiceprints", async () => {
+        profiles = [savedProfile];
+        const response = await POST(
+            new Request(`${url}?regenerate=1`, { method: "POST" }),
+            context,
+        );
+        const result: RecordingVoiceprints = await response.json();
+        expect(response.status).toBe(200);
+        expect(result.saved).toHaveLength(1);
+        expect(result.candidates).toHaveLength(1);
+        expect(createUserStorageProvider).toHaveBeenCalledWith("user-a");
+    });
+
     it("returns an opaque proof, saves it for the owner, and handles retries", async () => {
         const generated = await POST(
             new Request(url, { method: "POST" }),

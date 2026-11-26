@@ -15,7 +15,12 @@ import { Input } from "@/components/ui/input";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { formatDuration } from "@/lib/format-duration";
 import { useUiText } from "@/lib/i18n/client";
-import type { VoiceprintCandidate } from "@/lib/voiceprints/format";
+import type {
+    RecordingVoiceprints,
+    VoiceprintCandidate,
+} from "@/lib/voiceprints/format";
+
+const EMPTY_VOICEPRINTS: RecordingVoiceprints = { saved: [], candidates: [] };
 
 export function VoiceprintButton({
     recordingId,
@@ -26,46 +31,59 @@ export function VoiceprintButton({
 }) {
     const uiText = useUiText();
     const [open, setOpen] = useState(false);
-    const [pending, setPending] = useState(false);
+    const [pending, setPending] = useState<"load" | "extract" | null>(null);
     const [error, setError] = useState("");
-    const [candidates, setCandidates] = useState<VoiceprintCandidate[]>([]);
+    const [{ saved, candidates }, setVoiceprints] = useState(EMPTY_VOICEPRINTS);
     const request = useRef<AbortController | null>(null);
     const previewAudio = useRef<HTMLAudioElement | null>(null);
     const endpoint = `/api/recordings/${encodeURIComponent(recordingId)}/voiceprints`;
     useEffect(() => () => request.current?.abort(), []);
 
-    async function generate() {
+    async function load(regenerate = false) {
         request.current?.abort();
         const current = new AbortController();
         request.current = current;
-        setPending(true);
+        setPending(regenerate ? "extract" : "load");
         setError("");
-        setCandidates([]);
-        try {
-            const response = await fetch(endpoint, {
-                method: "POST",
+        setVoiceprints(({ saved }) => ({ saved, candidates: [] }));
+
+        async function read(url: string, method: "GET" | "POST") {
+            const response = await fetch(url, {
+                method,
                 signal: current.signal,
+                cache: "no-store",
             });
-            if (!response.ok)
+            if (!response.ok) {
+                const fallback =
+                    method === "GET"
+                        ? "Could not load voiceprints."
+                        : "Could not generate voiceprints.";
                 throw new Error(
-                    await getApiErrorMessage(
-                        response,
-                        "Could not generate voiceprints.",
-                        uiText.locale,
-                    ),
+                    await getApiErrorMessage(response, fallback, uiText.locale),
                 );
-            const result: { candidates: VoiceprintCandidate[] } =
-                await response.json();
-            if (!current.signal.aborted) setCandidates(result.candidates);
+            }
+            return (await response.json()) as RecordingVoiceprints;
+        }
+
+        try {
+            let result = regenerate
+                ? await read(`${endpoint}?regenerate=1`, "POST")
+                : await read(endpoint, "GET");
+            if (current.signal.aborted) return;
+            if (!regenerate && !result.saved.length) {
+                setPending("extract");
+                result = await read(endpoint, "POST");
+            }
+            if (!current.signal.aborted) setVoiceprints(result);
         } catch (failure) {
             if (!current.signal.aborted)
                 setError(
                     failure instanceof Error && !/fetch/i.test(failure.message)
                         ? failure.message
-                        : uiText("Could not generate voiceprints."),
+                        : uiText("Could not load voiceprints."),
                 );
         } finally {
-            if (!current.signal.aborted) setPending(false);
+            if (!current.signal.aborted) setPending(null);
         }
     }
 
@@ -76,12 +94,12 @@ export function VoiceprintButton({
                 setOpen(next);
                 if (next) {
                     onOpen?.();
-                    void generate();
+                    void load();
                 } else {
                     request.current?.abort();
                     previewAudio.current?.pause();
                     previewAudio.current = null;
-                    setCandidates([]);
+                    setVoiceprints(EMPTY_VOICEPRINTS);
                 }
             }}
         >
@@ -94,23 +112,52 @@ export function VoiceprintButton({
                         ·
                     </span>
                     <Speech aria-hidden="true" className="size-3" />
-                    {uiText("Generate voiceprints")}
+                    {uiText("Voiceprints")}
                 </button>
             </DialogTrigger>
             <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>{uiText("Generate voiceprints")}</DialogTitle>
+                    <DialogTitle>{uiText("Voiceprints")}</DialogTitle>
                     <DialogDescription>
                         {uiText(
-                            "Listen to the samples, then save each person under their name. Future transcriptions can use the name when the voice matches.",
+                            "View saved voiceprints or listen to extracted samples and save them under a speaker's name.",
                         )}
                     </DialogDescription>
                 </DialogHeader>
+                {saved.length > 0 && (
+                    <section className="space-y-2 rounded-md border p-3">
+                        <h3 className="text-sm font-medium">
+                            {uiText("Saved voiceprints")}
+                        </h3>
+                        <ul className="space-y-1 text-sm">
+                            {saved.map(({ id, name, sampleCount }) => (
+                                <li
+                                    key={id}
+                                    className="flex flex-wrap justify-between gap-2"
+                                >
+                                    <span
+                                        dir="auto"
+                                        className="wrap-break-word"
+                                    >
+                                        {name}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                        {uiText("{count} voice samples", {
+                                            count: sampleCount,
+                                        })}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                )}
                 {pending ? (
                     <output className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" />
                         {uiText(
-                            "Separating speakers and extracting voiceprints…",
+                            pending === "load"
+                                ? "Loading voiceprints…"
+                                : "Separating speakers and extracting voiceprints…",
                         )}
                     </output>
                 ) : error ? (
@@ -121,7 +168,7 @@ export function VoiceprintButton({
                         <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => void generate()}
+                            onClick={() => void load(saved.length > 0)}
                         >
                             {uiText("Try again")}
                         </Button>
@@ -141,6 +188,15 @@ export function VoiceprintButton({
                             />
                         ))}
                     </div>
+                ) : saved.length ? (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="justify-self-start"
+                        onClick={() => void load(true)}
+                    >
+                        {uiText("Extract voiceprints again")}
+                    </Button>
                 ) : (
                     <p className="text-sm text-muted-foreground">
                         {uiText(

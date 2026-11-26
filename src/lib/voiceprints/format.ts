@@ -95,6 +95,11 @@ export interface VoiceprintCandidate {
     proof: string;
 }
 
+export interface RecordingVoiceprints {
+    saved: { id: string; name: string; sampleCount: number }[];
+    candidates: VoiceprintCandidate[];
+}
+
 export interface SpeakerSegment {
     speaker: string;
     start: number;
