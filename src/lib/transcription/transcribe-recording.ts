@@ -57,6 +57,9 @@ import {
     isLocalDiarizationEnabled,
     transcribeWithSpeakerLabels,
 } from "@/lib/transcription/plaud-diarization";
+import { extractSpeakerSamples } from "@/lib/voiceprints/extract";
+import { getVoiceprintLibrary } from "@/lib/voiceprints/library";
+import { matchSpeakerNames } from "@/lib/voiceprints/match";
 import { emitEvent } from "@/lib/webhooks/emit";
 
 /**
@@ -443,6 +446,7 @@ async function transcribeRecordingInner(
         let persistProvider: string;
         let persistModel: string;
         let usedPlaudDiarization = false;
+        let voiceprintFailed = false;
 
         if (
             opts.providerId &&
@@ -463,6 +467,45 @@ async function transcribeRecordingInner(
                 transcriptionText = await transcribeWithSpeakerLabels(
                     audio,
                     recording.duration,
+                    async (segments) => {
+                        try {
+                            const { provider, profiles } =
+                                await getVoiceprintLibrary(userId);
+                            if (
+                                provider &&
+                                profiles.some((profile) =>
+                                    profile.samples.some(
+                                        (sample) =>
+                                            sample.model.id === provider.model,
+                                    ),
+                                )
+                            ) {
+                                const extracted = await extractSpeakerSamples({
+                                    provider,
+                                    segments,
+                                    audio,
+                                    recordingId,
+                                });
+                                return matchSpeakerNames(
+                                    new Map(
+                                        [...extracted].map(
+                                            ([speaker, value]) => [
+                                                speaker,
+                                                value.samples,
+                                            ],
+                                        ),
+                                    ),
+                                    profiles,
+                                );
+                            }
+                        } catch {
+                            voiceprintFailed = true;
+                            console.warn(
+                                "[voiceprints] Could not match speakers. Saved numbered labels.",
+                            );
+                        }
+                        return new Map();
+                    },
                 );
             } catch (error) {
                 const failure =
@@ -668,6 +711,7 @@ async function transcribeRecordingInner(
             source: "riffado",
             provider: persistProvider,
             model: persistModel,
+            ...(voiceprintFailed ? { voiceprintFailed } : {}),
         });
 
         if (!committed) {

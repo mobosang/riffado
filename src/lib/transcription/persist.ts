@@ -25,6 +25,7 @@ export interface UpsertTranscriptionArgs {
     source: TranscriptSource;
     provider: string;
     model: string;
+    voiceprintFailed?: boolean;
     /** Where it ran. Defaults to "server"; unrelated to `source`. */
     transcriptionType?: "server" | "browser";
 }
@@ -75,6 +76,7 @@ export async function upsertTranscription(
         source,
         provider,
         model,
+        voiceprintFailed = false,
         transcriptionType = "server",
     } = args;
 
@@ -145,7 +147,11 @@ export async function upsertTranscription(
                 .set({
                     updatedAt: new Date(),
                     ...(source === "riffado"
-                        ? { transcriptionError: null }
+                        ? {
+                              transcriptionError: voiceprintFailed
+                                  ? "VOICEPRINT_MATCH_FAILED"
+                                  : null,
+                          }
                         : {}),
                 })
                 .where(

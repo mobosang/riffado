@@ -435,6 +435,14 @@ export const apiCredentials = pgTable("api_credentials", {
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const speakerLibraries = pgTable("speaker_libraries", {
+    userId: text("user_id")
+        .primaryKey()
+        .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider"),
+    profiles: text("profiles"),
+});
+
 // User Settings
 export const userSettings = pgTable("user_settings", {
     id: text("id")

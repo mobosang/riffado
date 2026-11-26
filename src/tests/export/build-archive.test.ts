@@ -3,9 +3,17 @@ import unzipper from "unzipper";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StorageProvider, UploadStreamOptions } from "@/lib/storage/types";
 
-const { dbMock } = vi.hoisted(() => ({ dbMock: { select: vi.fn() } }));
+const { dbMock, getVoiceprintLibrary } = vi.hoisted(() => ({
+    dbMock: { select: vi.fn() },
+    getVoiceprintLibrary: vi.fn(),
+}));
 
 vi.mock("@/db", () => ({ db: dbMock }));
+vi.mock("@/lib/env", () => ({ env: { IS_HOSTED: false } }));
+vi.mock("@/lib/voiceprints/library", async (original) => ({
+    ...(await original<object>()),
+    getVoiceprintLibrary,
+}));
 vi.mock("@/db/schema", () => ({
     recordings: "recordings",
     transcriptions: "transcriptions",
@@ -157,10 +165,28 @@ describe("buildAndUploadExportArchive", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         storage = new FakeStorage();
+        getVoiceprintLibrary.mockResolvedValue({
+            provider: null,
+            profiles: [],
+        });
     });
 
     it("bundles audio, transcript, and summary per recording plus a manifest", async () => {
         storage.files.set("audio/rec-1.mp3", Buffer.from("fake-audio-bytes-1"));
+        const profile = {
+            id: "voice-1",
+            name: "王工",
+            samples: [
+                {
+                    model: { id: "test/model", revision: "v1", dimension: 2 },
+                    embedding: [1, 0],
+                },
+            ],
+        };
+        getVoiceprintLibrary.mockResolvedValue({
+            provider: null,
+            profiles: [profile],
+        });
 
         mockSelectSequence([
             [
@@ -210,6 +236,16 @@ describe("buildAndUploadExportArchive", () => {
         const entries = await readZipEntries(storage.uploaded as Buffer);
         const names = [...entries.keys()];
         expect(names).toContain("manifest.json");
+        expect(
+            JSON.parse(
+                entries.get("voiceprints.json")?.buffer.toString() ?? "{}",
+            ),
+        ).toEqual({
+            format: "riffado.voiceprints",
+            version: 1,
+            profiles: [profile],
+        });
+        expect(getVoiceprintLibrary).toHaveBeenCalledWith("user-1");
         expect(names.some((n) => n.endsWith("/audio.mp3"))).toBe(true);
         expect(names.some((n) => n.endsWith("/transcript.txt"))).toBe(true);
         expect(names.some((n) => n.endsWith("/summary.json"))).toBe(true);

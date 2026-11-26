@@ -53,7 +53,10 @@ import { generateSummaryForRecording } from "@/lib/summary/generate-summary";
 const userId = "user-1";
 const recordingId = "rec-1";
 
-function mockLookups(credentialRows: Record<string, unknown>[]) {
+function mockLookups(
+    credentialRows: Record<string, unknown>[],
+    transcriptRows: Record<string, unknown>[] = [{ text: "raw transcript" }],
+) {
     (db.select as Mock)
         // recording
         .mockReturnValueOnce({
@@ -69,9 +72,7 @@ function mockLookups(credentialRows: Record<string, unknown>[]) {
         .mockReturnValueOnce({
             from: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
-                    limit: vi
-                        .fn()
-                        .mockResolvedValue([{ text: "raw transcript" }]),
+                    limit: vi.fn().mockResolvedValue(transcriptRows),
                 }),
             }),
         })
@@ -167,5 +168,33 @@ describe("generateSummaryForRecording -- enhancement provider exclusion", () => 
             code: ErrorCode.AI_PROVIDER_NOT_CONFIGURED,
         });
         expect(chatCompletionsCreate).not.toHaveBeenCalled();
+    });
+
+    it("uses named speaker turns when a Plaud transcript also exists", async () => {
+        const named = "[00:00:03] 王工（说话人 2）：我负责更新需求。";
+        mockLookups(
+            [
+                {
+                    id: "creds-report",
+                    provider: "OpenAI",
+                    apiKey: "enc",
+                    baseUrl: null,
+                    defaultModel: "gpt-4o-mini",
+                    isDefaultEnhancement: true,
+                },
+            ],
+            [
+                { provider: "plaud", text: "Original Plaud transcript" },
+                { provider: "local-diarization", text: named },
+            ],
+        );
+        await generateSummaryForRecording(userId, recordingId);
+        const payload = chatCompletionsCreate.mock.calls[0][0] as {
+            messages: { role: string; content: string }[];
+        };
+        expect(payload.messages[1]?.content).toContain(named);
+        expect(payload.messages[0]?.content).toContain(
+            "Keep numbered and uncertain speakers anonymous",
+        );
     });
 });

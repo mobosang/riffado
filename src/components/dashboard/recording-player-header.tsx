@@ -1,6 +1,7 @@
 "use client";
 
 import { AudioWaveform, Loader2 } from "lucide-react";
+import { VoiceprintButton } from "@/components/dashboard/voiceprint-button";
 import { LocalTimeRange } from "@/components/local-time";
 import { DownloadAudioButton } from "@/components/recordings/download-audio-button";
 import { RecordingTitle } from "@/components/recordings/recording-title";
@@ -17,6 +18,7 @@ interface Props {
     scrubberStyle: "waveform" | "slider";
     waveformStatus: "idle" | "ready" | "decoding" | "skipped" | "error";
     onDecodeWaveform: () => void;
+    onOpenVoiceprints?: () => void;
     onRenamed?: (filename: string) => void;
 }
 
@@ -36,6 +38,7 @@ export function RecordingPlayerHeader({
     scrubberStyle,
     waveformStatus,
     onDecodeWaveform,
+    onOpenVoiceprints,
     onRenamed,
 }: Props) {
     const uiText = useUiText();
@@ -113,6 +116,13 @@ export function RecordingPlayerHeader({
                         <AudioWaveform className="size-3" />
                         {uiText("Retry waveform")}
                     </button>
+                )}
+                {onOpenVoiceprints && (
+                    <VoiceprintButton
+                        key={recording.id}
+                        recordingId={recording.id}
+                        onOpen={onOpenVoiceprints}
+                    />
                 )}
             </div>
         </CardHeader>

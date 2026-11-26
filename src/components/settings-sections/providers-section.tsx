@@ -8,6 +8,7 @@ import { AddProviderDialog } from "@/components/settings/add-provider-dialog";
 import { EditProviderDialog } from "@/components/settings/edit-provider-dialog";
 import { SettingsSectionHeader } from "@/components/settings/section-header";
 import { PromptManager } from "@/components/settings-sections/prompt-manager";
+import { VoiceprintSettings } from "@/components/settings-sections/voiceprint-settings";
 import { Button } from "@/components/ui/button";
 import { supportsEnhancement } from "@/lib/ai/provider-presets";
 import { getApiErrorMessage } from "@/lib/api-errors";
@@ -271,6 +272,9 @@ export function ProvidersSection({
                     />
                 )}
 
+                {aiSubSection === "providers" &&
+                    providers !== null &&
+                    !isHosted && <VoiceprintSettings />}
                 {aiSubSection === "prompts" && <PromptManager />}
             </div>
 

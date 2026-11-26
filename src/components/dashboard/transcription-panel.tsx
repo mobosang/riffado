@@ -203,6 +203,17 @@ export function TranscriptionPanel({
                             )}
                         </p>
                     )}
+                    {recording.transcriptionError ===
+                        "VOICEPRINT_MATCH_FAILED" && (
+                        <p
+                            role="alert"
+                            className="mb-4 rounded-lg border border-destructive/40 p-3 text-sm text-destructive"
+                        >
+                            {uiText(
+                                "Voiceprint matching failed. The transcript was saved with speaker numbers. Check the voiceprint service and retry.",
+                            )}
+                        </p>
+                    )}
                     {isTranscribing ? (
                         <div className="flex flex-col items-center justify-center py-12">
                             <div className="animate-spin size-8 border-2 border-primary border-t-transparent rounded-full mb-4" />

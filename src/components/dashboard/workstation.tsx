@@ -446,6 +446,7 @@ export function Workstation({
                             </div>
 
                             <WorkstationDetailPane
+                                isHosted={isHosted}
                                 currentRecording={selectedRecording}
                                 currentTranscription={currentTranscription}
                                 isCurrentTranscribing={isCurrentTranscribing}

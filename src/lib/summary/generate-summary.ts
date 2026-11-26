@@ -27,6 +27,9 @@ import { AppError, ErrorCode } from "@/lib/errors";
 import { captureServerEvent } from "@/lib/posthog-server";
 import { upsertEnhancement } from "@/lib/transcription/persist";
 
+const NAMED_SPEAKER_LINE =
+    /^\[\d{2,}:\d{2}:\d{2}\] [^：\r\n]+（(?:说话人|Speaker)\s+\d+）：/m;
+
 export interface GenerateSummaryOptions {
     /**
      * Preset id to use for this run. Overrides the user's default
@@ -99,10 +102,7 @@ export async function generateSummaryForRecording(
         );
     }
 
-    // NOTE: when both a Plaud-imported and the user's own transcript coexist,
-    // this currently summarizes whichever the DB returns first. Selecting the
-    // user's *active* transcript is handled in the Phase 5 UI work (#204).
-    const [transcription] = await db
+    const candidates = await db
         .select()
         .from(transcriptions)
         .where(
@@ -114,7 +114,13 @@ export async function generateSummaryForRecording(
                     : undefined,
             ),
         )
-        .limit(1);
+        .limit(3);
+    const transcription =
+        candidates.find(
+            (item) =>
+                item.provider === "local-diarization" &&
+                NAMED_SPEAKER_LINE.test(decryptText(item.text)),
+        ) ?? candidates[0];
 
     if (!transcription) {
         throw new AppError(
@@ -274,6 +280,8 @@ export async function generateSummaryForRecording(
         NO_VISUALS;
     const systemContent = [
         baseSystem,
+        NAMED_SPEAKER_LINE.test(transcriptText) &&
+            "Use the names in timestamped speaker labels for attribution. Keep numbered and uncertain speakers anonymous.",
         visuals.mindMap && VISUAL_PROMPTS.mindMap,
         visuals.tagChart && VISUAL_PROMPTS.tagChart,
         languageDirective,

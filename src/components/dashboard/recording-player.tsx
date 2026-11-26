@@ -13,6 +13,7 @@ import type { Recording } from "@/types/recording";
 interface RecordingPlayerProps {
     recording: Recording;
     children?: ReactNode;
+    isHosted?: boolean;
     onEnded?: () => void;
     onRenamed?: (filename: string) => void;
     initialPlaybackSpeed?: number;
@@ -37,6 +38,7 @@ interface RecordingPlayerProps {
 export function RecordingPlayer({
     recording,
     children,
+    isHosted = false,
     onEnded,
     onRenamed,
     initialPlaybackSpeed = 1.0,
@@ -107,6 +109,9 @@ export function RecordingPlayer({
                     scrubberStyle={scrubberStyle}
                     waveformStatus={waveformStatus}
                     onDecodeWaveform={triggerWaveformDecode}
+                    onOpenVoiceprints={
+                        isHosted ? undefined : () => audioRef.current?.pause()
+                    }
                     onRenamed={onRenamed}
                 />
                 <CardContent>

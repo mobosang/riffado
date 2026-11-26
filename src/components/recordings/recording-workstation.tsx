@@ -33,6 +33,7 @@ interface Transcription {
 }
 
 interface RecordingWorkstationProps {
+    isHosted?: boolean;
     recording: Recording;
     transcription?: Transcription;
     /** All transcripts (one per source) for the in-panel source switcher. */
@@ -58,6 +59,7 @@ export function RecordingWorkstation({
     initialVolume,
     initialAutoPlayNext,
     scrubberStyle,
+    isHosted,
 }: RecordingWorkstationProps) {
     const uiText = useUiText();
 
@@ -186,6 +188,7 @@ export function RecordingWorkstation({
                 {/* Content */}
                 <div className="space-y-6">
                     <RecordingPlayer
+                        isHosted={isHosted}
                         recording={displayRecording}
                         initialPlaybackSpeed={initialPlaybackSpeed}
                         initialVolume={initialVolume}

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { recordings, transcriptions, userSettings } from "@/db/schema";
 import { requireAuth, requireCompletedOnboarding } from "@/lib/auth-server";
 import { decryptText } from "@/lib/encryption/fields";
+import { env } from "@/lib/env";
 import { resolvePrimaryTranscript } from "@/lib/v1/serialize";
 
 interface RecordingDetailPageProps {
@@ -96,6 +97,7 @@ export default async function RecordingDetailPage({
 
     return (
         <RecordingWorkstation
+            isHosted={env.IS_HOSTED}
             recording={{
                 ...recording,
                 filename: decryptText(recording.filename),

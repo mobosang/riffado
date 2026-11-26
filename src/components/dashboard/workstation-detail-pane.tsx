@@ -16,6 +16,7 @@ interface TranscriptionData {
 
 interface Props {
     currentRecording: Recording | null;
+    isHosted?: boolean;
     currentTranscription: TranscriptionData | undefined;
     isCurrentTranscribing: boolean;
     visibleRecordings: Recording[];
@@ -45,6 +46,7 @@ interface Props {
  */
 export function WorkstationDetailPane({
     currentRecording,
+    isHosted,
     currentTranscription,
     isCurrentTranscribing,
     visibleRecordings,
@@ -86,6 +88,7 @@ export function WorkstationDetailPane({
             {currentRecording ? (
                 <RecordingPlayer
                     recording={currentRecording}
+                    isHosted={isHosted}
                     initialPlaybackSpeed={initialPlaybackSpeed}
                     initialVolume={initialVolume}
                     initialAutoPlayNext={initialAutoPlayNext}

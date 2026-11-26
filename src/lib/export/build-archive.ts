@@ -5,6 +5,10 @@ import { db } from "@/db";
 import { aiEnhancements, recordings, transcriptions } from "@/db/schema";
 import { decryptJsonField, decryptText } from "@/lib/encryption/fields";
 import type { StorageProvider } from "@/lib/storage/types";
+import {
+    formatVoiceprintLibrary,
+    getVoiceprintLibrary,
+} from "@/lib/voiceprints/library";
 
 export interface ArchiveResult {
     recordingCount: number;
@@ -70,6 +74,8 @@ export async function buildAndUploadExportArchive(input: {
     if (signal?.aborted) {
         throw new Error("Export aborted before starting");
     }
+
+    const { profiles } = await getVoiceprintLibrary(userId);
 
     const userRecordings = await db
         .select()
@@ -383,6 +389,14 @@ export async function buildAndUploadExportArchive(input: {
     archive.append(Buffer.from(JSON.stringify(manifest, null, 2)), {
         name: "manifest.json",
     });
+    if (profiles.length) {
+        archive.append(
+            Buffer.from(JSON.stringify(formatVoiceprintLibrary(profiles))),
+            {
+                name: "voiceprints.json",
+            },
+        );
+    }
 
     try {
         await archive.finalize();
