@@ -1,10 +1,12 @@
+import { createHash } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
-import { recordings } from "@/db/schema";
+import { recordings, transcriptions } from "@/db/schema";
 import { requireApiSession } from "@/lib/auth-server";
 import { decryptJSON, encryptJSON } from "@/lib/encryption";
+import { decryptText, encryptText } from "@/lib/encryption/fields";
 import { AppError, apiHandler, ErrorCode } from "@/lib/errors";
 import {
     DownloadSizeLimitError,
@@ -21,6 +23,7 @@ import {
     type VoiceProfile,
     type VoiceprintCandidate,
     voiceName,
+    voiceProfile,
     voiceSample,
 } from "@/lib/voiceprints/format";
 import {
@@ -31,6 +34,10 @@ import {
 } from "@/lib/voiceprints/library";
 import { matchSpeakerNames } from "@/lib/voiceprints/match";
 import { readVoiceprintJson } from "@/lib/voiceprints/read-json";
+import {
+    applyTranscriptNames,
+    listTranscriptSpeakers,
+} from "@/lib/voiceprints/transcript";
 
 type Context = { params: Promise<{ id: string }> };
 const LIMIT = 512 * 1024 ** 2;
@@ -44,9 +51,29 @@ const proofSchema = z.object({
     model: z.string(),
     samples: z.array(voiceSample).min(1).max(2),
 });
+const assignmentSchema = z.object({
+    revision: z.hash("sha256"),
+    assignments: z
+        .array(
+            z.object({
+                speaker: z.string().min(1).max(48),
+                profileId: voiceProfile.shape.id,
+            }),
+        )
+        .min(1)
+        .refine(
+            (rows) =>
+                new Set(rows.map(({ speaker }) => speaker)).size ===
+                rows.length,
+        ),
+});
 
-async function activeRecording(userId: string, id: string) {
-    const [recording] = await db
+async function activeRecording(
+    userId: string,
+    id: string,
+    tx?: Pick<typeof db, "select">,
+) {
+    const query = (tx ?? db)
         .select({
             storagePath: recordings.storagePath,
             duration: recordings.duration,
@@ -58,8 +85,8 @@ async function activeRecording(userId: string, id: string) {
                 eq(recordings.userId, userId),
                 isNull(recordings.deletedAt),
             ),
-        )
-        .limit(1);
+        );
+    const [recording] = await (tx ? query.for("update") : query).limit(1);
     if (!recording)
         throw new AppError(
             ErrorCode.RECORDING_NOT_FOUND,
@@ -67,6 +94,34 @@ async function activeRecording(userId: string, id: string) {
             404,
         );
     return recording;
+}
+
+async function findTranscript(
+    userId: string,
+    id: string,
+    reader: Pick<typeof db, "select"> = db,
+) {
+    const [transcript] = await reader
+        .select({ id: transcriptions.id, text: transcriptions.text })
+        .from(transcriptions)
+        .where(
+            and(
+                eq(transcriptions.userId, userId),
+                eq(transcriptions.recordingId, id),
+                eq(transcriptions.source, "riffado"),
+            ),
+        )
+        .limit(1);
+    return transcript;
+}
+
+function transcriptRevision(
+    text: string,
+    saved: RecordingVoiceprints["saved"],
+) {
+    return createHash("sha256")
+        .update(JSON.stringify([text, saved]))
+        .digest("hex");
 }
 
 function savedForRecording(
@@ -87,10 +142,85 @@ export const GET = apiHandler<Context>(async (request, context) => {
     const { id } = await (context as Context).params;
     await activeRecording(user.id, id);
     const { profiles } = await getVoiceprintLibrary(user.id);
-    return NextResponse.json(
-        { saved: savedForRecording(profiles, id), candidates: [] },
-        PRIVATE_RESPONSE,
+    const saved = savedForRecording(profiles, id);
+    if (new URL(request.url).searchParams.has("transcript")) {
+        const row = await findTranscript(user.id, id);
+        const transcript = row
+            ? {
+                  revision: transcriptRevision(row.text, saved),
+                  speakers: listTranscriptSpeakers(
+                      decryptText(row.text),
+                      profiles,
+                      id,
+                  ),
+              }
+            : null;
+        return NextResponse.json({ saved, transcript }, PRIVATE_RESPONSE);
+    }
+    return NextResponse.json({ saved, candidates: [] }, PRIVATE_RESPONSE);
+});
+
+export const PATCH = apiHandler<Context>(async (request, context) => {
+    const { user } = await requireApiSession(request);
+    requireSelfHostedVoiceprints();
+    const { id } = await (context as Context).params;
+    const value = assignmentSchema.safeParse(
+        await readVoiceprintJson(request, 32_000),
     );
+    const invalid = new AppError(
+        ErrorCode.INVALID_INPUT,
+        "Select a saved voiceprint for each speaker you want to name.",
+        400,
+    );
+    if (!value.success) throw invalid;
+
+    const { profiles } = await getVoiceprintLibrary(user.id);
+    const saved = savedForRecording(profiles, id);
+    await db.transaction(async (tx) => {
+        await activeRecording(user.id, id, tx);
+        const current = await findTranscript(user.id, id, tx);
+        if (
+            !current ||
+            transcriptRevision(current.text, saved) !== value.data.revision
+        ) {
+            throw new AppError(
+                ErrorCode.CONFLICT,
+                "The transcript or saved names changed. Reload the speaker list and try again.",
+                409,
+            );
+        }
+
+        const names = new Map<string, string>();
+        for (const { speaker, profileId } of value.data.assignments) {
+            const profile = saved.find(({ id }) => id === profileId);
+            if (!profile) throw invalid;
+            names.set(speaker, profile.name);
+        }
+
+        const text = decryptText(current.text);
+        const updated = applyTranscriptNames(text, names);
+        if (updated === null) throw invalid;
+        if (updated !== text) {
+            await tx
+                .update(transcriptions)
+                .set({ text: encryptText(updated) })
+                .where(
+                    and(
+                        eq(transcriptions.id, current.id),
+                        eq(transcriptions.userId, user.id),
+                        eq(transcriptions.recordingId, id),
+                        eq(transcriptions.source, "riffado"),
+                    ),
+                );
+            await tx
+                .update(recordings)
+                .set({ updatedAt: new Date() })
+                .where(
+                    and(eq(recordings.id, id), eq(recordings.userId, user.id)),
+                );
+        }
+    });
+    return NextResponse.json({ success: true }, PRIVATE_RESPONSE);
 });
 
 export const POST = apiHandler<Context>(async (request, context) => {
@@ -217,42 +347,48 @@ export const PUT = apiHandler<Context>(async (request, context) => {
         throw invalid;
 
     const proof = parsed.data;
-    await updateVoiceProfiles(user.id, (profiles, provider) => {
-        if (
-            proof.endpoint !== provider?.endpoint ||
-            proof.model !== provider.model
-        ) {
-            throw new AppError(
-                ErrorCode.CONFLICT,
-                "The voiceprint service changed. Generate the samples again.",
-                409,
+    const profiles = await updateVoiceProfiles(
+        user.id,
+        (profiles, provider) => {
+            if (
+                proof.endpoint !== provider?.endpoint ||
+                proof.model !== provider.model
+            ) {
+                throw new AppError(
+                    ErrorCode.CONFLICT,
+                    "The voiceprint service changed. Generate the samples again.",
+                    409,
+                );
+            }
+            const otherPersonHasSample = profiles.some(
+                (profile) =>
+                    profile.name !== value.data.name &&
+                    profile.samples.some(
+                        ({ source }) =>
+                            source &&
+                            proof.samples.some(
+                                (sample) =>
+                                    sample.source?.recordingId ===
+                                        source.recordingId &&
+                                    sample.source.start === source.start &&
+                                    sample.source.end === source.end,
+                            ),
+                    ),
             );
-        }
-        const otherPersonHasSample = profiles.some(
-            (profile) =>
-                profile.name !== value.data.name &&
-                profile.samples.some(
-                    ({ source }) =>
-                        source &&
-                        proof.samples.some(
-                            (sample) =>
-                                sample.source?.recordingId ===
-                                    source.recordingId &&
-                                sample.source.start === source.start &&
-                                sample.source.end === source.end,
-                        ),
-                ),
-        );
-        if (otherPersonHasSample) {
-            throw new AppError(
-                ErrorCode.CONFLICT,
-                "This sample is already saved under another name.",
-                409,
-            );
-        }
-        return mergeVoiceProfiles(profiles, [
-            { name: value.data.name, samples: proof.samples },
-        ]);
-    });
-    return NextResponse.json({ success: true });
+            if (otherPersonHasSample) {
+                throw new AppError(
+                    ErrorCode.CONFLICT,
+                    "This sample is already saved under another name.",
+                    409,
+                );
+            }
+            return mergeVoiceProfiles(profiles, [
+                { name: value.data.name, samples: proof.samples },
+            ]);
+        },
+    );
+    return NextResponse.json(
+        { success: true, saved: savedForRecording(profiles, id) },
+        PRIVATE_RESPONSE,
+    );
 });

@@ -65,7 +65,7 @@ export async function updateVoiceProfiles(
         provider: VoiceprintProvider | null,
     ) => VoiceProfile[],
 ) {
-    await db.transaction(async (tx) => {
+    return db.transaction(async (tx) => {
         await tx
             .insert(speakerLibraries)
             .values({ userId })
@@ -94,6 +94,7 @@ export async function updateVoiceProfiles(
             .update(speakerLibraries)
             .set({ profiles: encryptText(JSON.stringify(updated)) })
             .where(eq(speakerLibraries.userId, userId));
+        return updated;
     });
 }
 

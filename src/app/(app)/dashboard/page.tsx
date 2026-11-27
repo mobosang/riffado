@@ -1,4 +1,5 @@
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
+import type { TranscriptOption } from "@/components/dashboard/transcription-panel";
 import { Workstation } from "@/components/dashboard/workstation";
 import { db } from "@/db";
 import {
@@ -13,6 +14,7 @@ import { decryptText } from "@/lib/encryption/fields";
 import { env } from "@/lib/env";
 import { isAdminEmail } from "@/lib/hosted/admin/guard";
 import { initialSettingsFromRow } from "@/lib/settings/initial-settings";
+import { resolvePrimaryTranscript } from "@/lib/v1/serialize";
 import { serializeRecording } from "@/types/recording";
 
 export default async function DashboardPage() {
@@ -47,6 +49,7 @@ export default async function DashboardPage() {
         db
             .select({
                 recordingId: transcriptions.recordingId,
+                source: transcriptions.source,
                 text: transcriptions.text,
                 language: transcriptions.detectedLanguage,
             })
@@ -102,12 +105,26 @@ export default async function DashboardPage() {
         ),
     );
 
-    const transcriptionMap = new Map(
-        userTranscriptions.map((t) => [
-            t.recordingId,
-            { text: decryptText(t.text), language: t.language || undefined },
-        ]),
-    );
+    const transcriptionMap = new Map<string, TranscriptOption[]>();
+    for (const row of userTranscriptions) {
+        const options = transcriptionMap.get(row.recordingId) ?? [];
+        options.push({
+            source: row.source,
+            text: decryptText(row.text),
+            language: row.language || undefined,
+        });
+        transcriptionMap.set(row.recordingId, options);
+    }
+    const preferredSource = settingsRow?.preferredTranscriptSource ?? "plaud";
+    for (const [id, options] of transcriptionMap) {
+        const primary = resolvePrimaryTranscript(options, preferredSource);
+        if (primary && options[0] !== primary) {
+            transcriptionMap.set(id, [
+                primary,
+                ...options.filter((option) => option !== primary),
+            ]);
+        }
+    }
 
     // One source of truth for InitialSettings + their defaults lives in
     // `src/lib/settings/initial-settings.ts`; adding a new preference

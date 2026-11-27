@@ -1,3 +1,4 @@
+import type { TranscriptOption } from "@/components/dashboard/transcription-panel";
 import type { SummaryData } from "@/hooks/use-transcription-summary";
 import {
     INITIAL_SETTINGS_DEFAULTS,
@@ -17,11 +18,6 @@ import type { Recording } from "@/types/recording";
  * vendors we already name in marketing (`TheMath`, `Features`) so the
  * screenshots stay consistent with the rest of the landing.
  */
-
-interface TranscriptionFixture {
-    text: string;
-    language?: string;
-}
 
 interface DemoRecordingSeed {
     id: string;
@@ -254,14 +250,17 @@ export function buildDemoRecordings(now: Date): Recording[] {
  * Demo transcriptions Map, keyed by recording id. Shape matches the
  * `transcriptions` prop on `<Workstation>`.
  */
-export function buildDemoTranscriptions(): Map<string, TranscriptionFixture> {
-    const map = new Map<string, TranscriptionFixture>();
+export function buildDemoTranscriptions(): Map<string, TranscriptOption[]> {
+    const map = new Map<string, TranscriptOption[]>();
     for (const seed of SEEDS) {
         if (seed.transcript) {
-            map.set(seed.id, {
-                text: seed.transcript,
-                language: seed.language ?? "en",
-            });
+            map.set(seed.id, [
+                {
+                    source: "riffado",
+                    text: seed.transcript,
+                    language: seed.language ?? "en",
+                },
+            ]);
         }
     }
     return map;

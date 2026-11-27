@@ -183,10 +183,9 @@ export function serializeRecording(
  * summary input, the v1 transcript endpoint). Prefers the user's configured
  * source, then their own 'riffado' transcript, then whatever exists.
  */
-export function resolvePrimaryTranscript(
-    transcripts: TranscriptionRow[],
-    preferredSource: string,
-): TranscriptionRow | null {
+export function resolvePrimaryTranscript<
+    T extends Pick<TranscriptionRow, "source">,
+>(transcripts: T[], preferredSource: string): T | null {
     if (transcripts.length === 0) return null;
     return (
         transcripts.find((t) => t.source === preferredSource) ??

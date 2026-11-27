@@ -13,6 +13,9 @@ import { VoiceprintButton } from "@/components/dashboard/voiceprint-button";
 import { VoiceprintSettings } from "@/components/settings-sections/voiceprint-settings";
 import { CAMPPLUS_MODEL } from "@/lib/voiceprints/format";
 
+const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
 afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -39,7 +42,9 @@ it("generates new samples once and opens saved voiceprints without generating ag
         .fn()
         .mockResolvedValueOnce(Response.json({ saved: [], candidates: [] }))
         .mockResolvedValueOnce(Response.json(extractedVoiceprints))
-        .mockResolvedValueOnce(Response.json({ success: true }))
+        .mockResolvedValueOnce(
+            Response.json({ success: true, saved: savedVoiceprints.saved }),
+        )
         .mockResolvedValueOnce(Response.json(savedVoiceprints));
     vi.stubGlobal("fetch", fetchMock);
     render(<VoiceprintButton recordingId="test-recording" />);
@@ -48,6 +53,9 @@ it("generates new samples once and opens saved voiceprints without generating ag
     fireEvent.change(input, { target: { value: "王工" } });
     fireEvent.click(screen.getByRole("button", { name: "Save voiceprints" }));
     expect(await screen.findByRole("button", { name: "Saved" })).toBeDefined();
+    expect(
+        screen.getByRole("button", { name: "Apply names to this transcript" }),
+    ).toBeDefined();
     expect(fetchMock).toHaveBeenLastCalledWith(
         recordingEndpoint,
         expect.objectContaining({
@@ -68,6 +76,63 @@ it("generates new samples once and opens saved voiceprints without generating ag
     expect(fetchMock).toHaveBeenLastCalledWith(
         recordingEndpoint,
         expect.objectContaining({ method: "GET" }),
+    );
+});
+
+it("reviews a suggested name and applies a manual selection without re-extracting", async () => {
+    const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(Response.json(savedVoiceprints))
+        .mockResolvedValueOnce(
+            Response.json({
+                saved: savedVoiceprints.saved,
+                transcript: {
+                    revision: "revision-a",
+                    speakers: [
+                        {
+                            speaker: "说话人 1",
+                            timestamp: "00:00:00",
+                            excerpt: "导入发言",
+                            suggestedProfileId: "speaker-a",
+                        },
+                        {
+                            speaker: "说话人 2",
+                            timestamp: "00:00:07",
+                            excerpt: "稍后发言",
+                        },
+                    ],
+                },
+            }),
+        )
+        .mockResolvedValueOnce(Response.json({ success: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VoiceprintButton recordingId="test-recording" />);
+    fireEvent.click(screen.getByRole("button", { name: "Voiceprints" }));
+    fireEvent.click(
+        await screen.findByRole("button", {
+            name: "Apply names to this transcript",
+        }),
+    );
+    const first = await screen.findByRole<HTMLSelectElement>("combobox", {
+        name: "说话人 1",
+    });
+    expect(first.value).toBe("speaker-a");
+    fireEvent.change(first, { target: { value: "" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "说话人 2" }), {
+        target: { value: "speaker-a" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply names" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+        recordingEndpoint,
+        expect.objectContaining({
+            method: "PATCH",
+            body: JSON.stringify({
+                revision: "revision-a",
+                assignments: [{ speaker: "说话人 2", profileId: "speaker-a" }],
+            }),
+        }),
     );
 });
 

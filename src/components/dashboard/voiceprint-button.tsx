@@ -2,6 +2,7 @@
 
 import { Loader2, Speech } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { VoiceprintTranscriptNames } from "@/components/dashboard/voiceprint-transcript-names";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -31,6 +32,7 @@ export function VoiceprintButton({
 }) {
     const uiText = useUiText();
     const [open, setOpen] = useState(false);
+    const [editingTranscript, setEditingTranscript] = useState(false);
     const [pending, setPending] = useState<"load" | "extract" | null>(null);
     const [error, setError] = useState("");
     const [{ saved, candidates }, setVoiceprints] = useState(EMPTY_VOICEPRINTS);
@@ -38,6 +40,20 @@ export function VoiceprintButton({
     const previewAudio = useRef<HTMLAudioElement | null>(null);
     const endpoint = `/api/recordings/${encodeURIComponent(recordingId)}/voiceprints`;
     useEffect(() => () => request.current?.abort(), []);
+
+    function handleOpenChange(next: boolean) {
+        setOpen(next);
+        if (next) {
+            onOpen?.();
+            void load();
+        } else {
+            request.current?.abort();
+            previewAudio.current?.pause();
+            previewAudio.current = null;
+            setVoiceprints(EMPTY_VOICEPRINTS);
+            setEditingTranscript(false);
+        }
+    }
 
     async function load(regenerate = false) {
         request.current?.abort();
@@ -88,21 +104,7 @@ export function VoiceprintButton({
     }
 
     return (
-        <Dialog
-            open={open}
-            onOpenChange={(next) => {
-                setOpen(next);
-                if (next) {
-                    onOpen?.();
-                    void load();
-                } else {
-                    request.current?.abort();
-                    previewAudio.current?.pause();
-                    previewAudio.current = null;
-                    setVoiceprints(EMPTY_VOICEPRINTS);
-                }
-            }}
-        >
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
                 <button
                     type="button"
@@ -117,14 +119,22 @@ export function VoiceprintButton({
             </DialogTrigger>
             <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>{uiText("Voiceprints")}</DialogTitle>
+                    <DialogTitle>
+                        {uiText(
+                            editingTranscript
+                                ? "Apply names to this transcript"
+                                : "Voiceprints",
+                        )}
+                    </DialogTitle>
                     <DialogDescription>
                         {uiText(
-                            "View saved voiceprints or listen to extracted samples and save them under a speaker's name.",
+                            editingTranscript
+                                ? "Review the names suggested from sample times or choose a saved name."
+                                : "View saved voiceprints or listen to extracted samples and save them under a speaker's name.",
                         )}
                     </DialogDescription>
                 </DialogHeader>
-                {saved.length > 0 && (
+                {saved.length > 0 && !editingTranscript && (
                     <section className="space-y-2 rounded-md border p-3">
                         <h3 className="text-sm font-medium">
                             {uiText("Saved voiceprints")}
@@ -149,9 +159,26 @@ export function VoiceprintButton({
                                 </li>
                             ))}
                         </ul>
+                        <Button
+                            type="button"
+                            size="sm"
+                            disabled={Boolean(pending)}
+                            onClick={() => {
+                                previewAudio.current?.pause();
+                                setEditingTranscript(true);
+                            }}
+                        >
+                            {uiText("Apply names to this transcript")}
+                        </Button>
                     </section>
                 )}
-                {pending ? (
+                {editingTranscript ? (
+                    <VoiceprintTranscriptNames
+                        endpoint={endpoint}
+                        onBack={() => setEditingTranscript(false)}
+                        onApplied={() => handleOpenChange(false)}
+                    />
+                ) : pending ? (
                     <output className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" />
                         {uiText(
@@ -180,6 +207,12 @@ export function VoiceprintButton({
                                 key={candidate.speaker}
                                 candidate={candidate}
                                 endpoint={endpoint}
+                                onSaved={(saved) =>
+                                    setVoiceprints((current) => ({
+                                        ...current,
+                                        saved,
+                                    }))
+                                }
                                 onPlay={(audio) => {
                                     if (previewAudio.current !== audio)
                                         previewAudio.current?.pause();
@@ -212,10 +245,12 @@ export function VoiceprintButton({
 function VoiceprintEnrollment({
     candidate,
     endpoint,
+    onSaved,
     onPlay,
 }: {
     candidate: VoiceprintCandidate;
     endpoint: string;
+    onSaved: (saved: RecordingVoiceprints["saved"]) => void;
     onPlay: (audio: HTMLAudioElement) => void;
 }) {
     const uiText = useUiText();
@@ -236,8 +271,12 @@ function VoiceprintEnrollment({
                     proof: candidate.proof,
                 }),
             });
-            if (response.ok) setSaved(true);
-            else
+            if (response.ok) {
+                const result: Pick<RecordingVoiceprints, "saved"> =
+                    await response.json();
+                onSaved(result.saved);
+                setSaved(true);
+            } else {
                 setError(
                     await getApiErrorMessage(
                         response,
@@ -245,6 +284,7 @@ function VoiceprintEnrollment({
                         uiText.locale,
                     ),
                 );
+            }
         } catch {
             setError(uiText("Could not save voiceprints."));
         } finally {

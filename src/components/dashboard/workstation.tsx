@@ -11,6 +11,7 @@ import {
     type RecordingListHandle,
 } from "@/components/dashboard/recording-list";
 import { ShortcutsDialog } from "@/components/dashboard/shortcuts-dialog";
+import type { TranscriptOption } from "@/components/dashboard/transcription-panel";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { WorkstationDetailPane } from "@/components/dashboard/workstation-detail-pane";
 import { WorkstationEmptyState } from "@/components/dashboard/workstation-empty-state";
@@ -39,14 +40,9 @@ import { SYNC_CONFIG } from "@/lib/sync-config";
 import { cn } from "@/lib/utils";
 import type { Recording } from "@/types/recording";
 
-interface TranscriptionData {
-    text?: string;
-    language?: string;
-}
-
 interface WorkstationProps {
     recordings: Recording[];
-    transcriptions: Map<string, TranscriptionData>;
+    transcriptions: Map<string, TranscriptOption[]>;
     /**
      * When true, an admin shortcut appears in the avatar menu. Set by
      * the server-rendered page based on env.ADMIN_EMAILS membership;
@@ -158,9 +154,16 @@ export function Workstation({
         [recordings, hiddenIds, filenameOverrides],
     );
 
-    const currentTranscription = currentRecording
+    const currentTranscripts = currentRecording
         ? transcriptions.get(currentRecording.id)
         : undefined;
+    const primaryTranscriptions = useMemo(
+        () =>
+            new Map(
+                Array.from(transcriptions, ([id, options]) => [id, options[0]]),
+            ),
+        [transcriptions],
+    );
 
     const selectedRecording = currentRecording
         ? (visibleRecordings.find((r) => r.id === currentRecording.id) ??
@@ -420,7 +423,7 @@ export function Workstation({
                                 <RecordingList
                                     ref={listRef}
                                     recordings={visibleRecordings}
-                                    transcriptions={transcriptions}
+                                    transcriptions={primaryTranscriptions}
                                     currentRecording={currentRecording}
                                     pendingUploads={pendingUploads}
                                     inFlightActions={inFlightActions}
@@ -448,7 +451,7 @@ export function Workstation({
                             <WorkstationDetailPane
                                 isHosted={isHosted}
                                 currentRecording={selectedRecording}
-                                currentTranscription={currentTranscription}
+                                currentTranscripts={currentTranscripts}
                                 isCurrentTranscribing={isCurrentTranscribing}
                                 visibleRecordings={visibleRecordings}
                                 onTranscribe={handleTranscribe}
@@ -475,7 +478,7 @@ export function Workstation({
                 open={paletteOpen}
                 onOpenChange={setPaletteOpen}
                 recordings={visibleRecordings}
-                transcriptions={transcriptions}
+                transcriptions={primaryTranscriptions}
                 currentRecording={currentRecording}
                 inFlightActions={inFlightActions}
                 currentTheme={theme}

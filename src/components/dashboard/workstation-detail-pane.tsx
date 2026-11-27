@@ -2,22 +2,20 @@
 
 import { ArrowLeft } from "lucide-react";
 import { RecordingPlayer } from "@/components/dashboard/recording-player";
-import { TranscriptionPanel } from "@/components/dashboard/transcription-panel";
+import {
+    TranscriptionPanel,
+    type TranscriptOption,
+} from "@/components/dashboard/transcription-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useUiText } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 import type { Recording } from "@/types/recording";
 
-interface TranscriptionData {
-    text?: string;
-    language?: string;
-}
-
 interface Props {
     currentRecording: Recording | null;
     isHosted?: boolean;
-    currentTranscription: TranscriptionData | undefined;
+    currentTranscripts: TranscriptOption[] | undefined;
     isCurrentTranscribing: boolean;
     visibleRecordings: Recording[];
     onTranscribe: () => void;
@@ -47,7 +45,7 @@ interface Props {
 export function WorkstationDetailPane({
     currentRecording,
     isHosted,
-    currentTranscription,
+    currentTranscripts,
     isCurrentTranscribing,
     visibleRecordings,
     onTranscribe,
@@ -109,8 +107,9 @@ export function WorkstationDetailPane({
                     }}
                 >
                     <TranscriptionPanel
+                        key={currentRecording.id}
                         recording={currentRecording}
-                        transcription={currentTranscription}
+                        transcripts={currentTranscripts}
                         isTranscribing={isCurrentTranscribing}
                         onTranscribe={onTranscribe}
                         onTranscribeComplete={onTranscribeComplete}
