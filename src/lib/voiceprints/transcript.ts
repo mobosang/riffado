@@ -1,4 +1,7 @@
-import type { VoiceProfile } from "@/lib/voiceprints/format";
+import {
+    MAX_SAMPLE_SECONDS,
+    type VoiceProfile,
+} from "@/lib/voiceprints/format";
 
 const TIMED_LINE = /^([ \t]*\[((?:\d{1,3}:)?[0-5]?\d:[0-5]\d)\][ \t]+)(.*)$/;
 const SPEAKER_LINE = /^([^:：]+?)([ \t]*[:：].*)$/;
@@ -10,6 +13,7 @@ export interface TranscriptSpeaker {
     name?: string;
     timestamp: string;
     excerpt: string;
+    preview: { start: number; end: number; sharedTimestamp: boolean } | null;
     suggestedProfileId?: string;
 }
 
@@ -42,6 +46,7 @@ export function listTranscriptSpeakers(
     text: string,
     profiles: VoiceProfile[],
     recordingId: string,
+    durationMs: number,
 ): TranscriptSpeaker[] {
     const turns = text
         .split(/\r\n|\n|\r/)
@@ -49,20 +54,59 @@ export function listTranscriptSpeakers(
         .filter((turn) => turn !== null)
         .sort((a, b) => a.start - b.start);
     const speakers = new Map<string, TranscriptSpeaker>();
+    const recordingEnd = durationMs > 0 ? durationMs / 1000 : Infinity;
 
-    for (const { speaker, name, timestamp, suffix } of turns) {
-        if (!speaker) continue;
-        const entry = speakers.get(speaker);
-        if (entry) {
-            entry.name ??= name;
-        } else {
-            speakers.set(speaker, {
-                speaker,
-                name,
-                timestamp,
-                excerpt: suffix.replace(/^[ \t]*[:：][ \t]*/, "").slice(0, 120),
-            });
+    for (let cursor = 0; cursor < turns.length; ) {
+        const first = turns[cursor];
+        const start = first.start;
+        let next = cursor + 1;
+        while (turns[next]?.start === start) next++;
+        const group = turns.slice(cursor, next);
+        const sharedTimestamp = group.some(
+            (turn) => turn.speaker !== first.speaker,
+        );
+        const clipLimit = start + (sharedTimestamp ? 1 : MAX_SAMPLE_SECONDS);
+        let boundary = next;
+        if (first.speaker && !sharedTimestamp) {
+            while (
+                turns[boundary]?.speaker === first.speaker &&
+                turns[boundary].start < clipLimit
+            ) {
+                boundary++;
+            }
         }
+        const end = Math.min(
+            turns[boundary]?.start ?? recordingEnd,
+            recordingEnd,
+            clipLimit,
+        );
+        const preview = end > start ? { start, end, sharedTimestamp } : null;
+
+        for (const { speaker, name, timestamp, suffix } of group) {
+            if (!speaker) continue;
+            const entry = speakers.get(speaker);
+            const prior = entry?.preview;
+            const betterPreview =
+                preview &&
+                (!prior ||
+                    (prior.sharedTimestamp && !preview.sharedTimestamp) ||
+                    (prior.sharedTimestamp === preview.sharedTimestamp &&
+                        end - start > prior.end - prior.start));
+            if (!entry || betterPreview) {
+                speakers.set(speaker, {
+                    speaker,
+                    name: entry?.name ?? name,
+                    timestamp,
+                    excerpt: suffix
+                        .replace(/^[ \t]*[:：][ \t]*/, "")
+                        .slice(0, 120),
+                    preview,
+                });
+            } else {
+                entry.name ??= name;
+            }
+        }
+        cursor = next;
     }
 
     const suggestions = new Map<string, string | null>();

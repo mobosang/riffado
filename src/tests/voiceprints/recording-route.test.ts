@@ -218,6 +218,48 @@ describe("applying voiceprint names to a transcript", () => {
         expect(editor.speakers[1].suggestedProfileId).toBeUndefined();
     });
 
+    it("picks clear original playback ranges and bounds short or overlapping turns", async () => {
+        transcript = {
+            id: "transcript-a",
+            text: encryptText(
+                [
+                    "[00:00:00] 说话人 1：短句",
+                    "[00:00:01] 说话人 2：下一句",
+                    "[00:00:02] 说话人 2：短句",
+                    "[00:00:02] 说话人 3：时间戳重叠",
+                    "[00:00:04] 说话人 1：这段发言较长",
+                    "[00:00:05] 说话人 1：接着说完",
+                    "[00:00:17] 说话人 4：最后一段",
+                    "[00:00:25] 说话人 5：超出录音",
+                ].join("\n"),
+            ),
+        };
+        const editor = await loadEditor();
+        expect(editor.speakers).toMatchObject([
+            {
+                speaker: "说话人 1",
+                timestamp: "00:00:04",
+                excerpt: "这段发言较长",
+                preview: { start: 4, end: 10, sharedTimestamp: false },
+            },
+            {
+                speaker: "说话人 2",
+                timestamp: "00:00:01",
+                preview: { start: 1, end: 2, sharedTimestamp: false },
+            },
+            {
+                speaker: "说话人 3",
+                preview: { start: 2, end: 3, sharedTimestamp: true },
+            },
+            {
+                speaker: "说话人 4",
+                preview: { start: 17, end: 20, sharedTimestamp: false },
+            },
+            { speaker: "说话人 5", preview: null },
+        ]);
+        expect(createUserStorageProvider).not.toHaveBeenCalled();
+    });
+
     it("rejects an assignment to a profile from another recording", async () => {
         profiles.push({
             ...savedProfile,

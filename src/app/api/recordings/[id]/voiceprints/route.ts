@@ -140,7 +140,7 @@ export const GET = apiHandler<Context>(async (request, context) => {
     const { user } = await requireApiSession(request);
     requireSelfHostedVoiceprints();
     const { id } = await (context as Context).params;
-    await activeRecording(user.id, id);
+    const recording = await activeRecording(user.id, id);
     const { profiles } = await getVoiceprintLibrary(user.id);
     const saved = savedForRecording(profiles, id);
     if (new URL(request.url).searchParams.has("transcript")) {
@@ -152,6 +152,7 @@ export const GET = apiHandler<Context>(async (request, context) => {
                       decryptText(row.text),
                       profiles,
                       id,
+                      recording.duration,
                   ),
               }
             : null;

@@ -1,14 +1,18 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, Play, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { getApiErrorMessage } from "@/lib/api-errors";
 import { useUiText } from "@/lib/i18n/client";
+import { recordingAudioPlaybackPath } from "@/lib/recordings/filename";
 import type { RecordingVoiceprints } from "@/lib/voiceprints/format";
-import type { TranscriptNameEditor } from "@/lib/voiceprints/transcript";
+import type {
+    TranscriptNameEditor,
+    TranscriptSpeaker,
+} from "@/lib/voiceprints/transcript";
 
 interface EditorResponse {
     saved: RecordingVoiceprints["saved"];
@@ -17,10 +21,12 @@ interface EditorResponse {
 
 export function VoiceprintTranscriptNames({
     endpoint,
+    recordingId,
     onBack,
     onApplied,
 }: {
     endpoint: string;
+    recordingId: string;
     onBack: () => void;
     onApplied: () => void;
 }) {
@@ -32,10 +38,69 @@ export function VoiceprintTranscriptNames({
     const [applying, setApplying] = useState(false);
     const [stale, setStale] = useState(false);
     const [error, setError] = useState("");
+    const [previewSpeaker, setPreviewSpeaker] = useState<string | null>(null);
+    const [previewError, setPreviewError] = useState(false);
+    const previewAudio = useRef<HTMLAudioElement | null>(null);
     const request = useRef<AbortController | null>(null);
+
+    const releaseAudio = useCallback(() => {
+        const audio = previewAudio.current;
+        if (!audio) return;
+        previewAudio.current = null;
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.load();
+    }, []);
+
+    function listen({ speaker, preview }: TranscriptSpeaker) {
+        if (!preview) return;
+        releaseAudio();
+        setPreviewError(false);
+        if (previewSpeaker === speaker) {
+            setPreviewSpeaker(null);
+            return;
+        }
+
+        const url = recordingAudioPlaybackPath(
+            encodeURIComponent(recordingId),
+            {
+                stream: true,
+            },
+        );
+        const { start, end } = preview;
+        const audio = new Audio(`${url}#t=${start},${end}`);
+        previewAudio.current = audio;
+        setPreviewSpeaker(speaker);
+
+        function finish(failed = false) {
+            if (previewAudio.current !== audio) return;
+            releaseAudio();
+            setPreviewSpeaker(null);
+            setPreviewError(failed);
+        }
+
+        audio.onloadedmetadata = () => {
+            if (Number.isFinite(audio.duration) && start >= audio.duration) {
+                finish(true);
+            } else if (audio.currentTime < start) {
+                audio.currentTime = start;
+            }
+        };
+        audio.ontimeupdate = () => {
+            if (!audio.seeking && audio.currentTime >= end) finish();
+        };
+        audio.onpause = () => finish();
+        audio.onended = () => finish();
+        audio.onerror = () => finish(true);
+        audio.currentTime = start;
+        void audio.play().catch(() => finish(true));
+    }
 
     const load = useCallback(async () => {
         request.current?.abort();
+        releaseAudio();
+        setPreviewSpeaker(null);
+        setPreviewError(false);
         const controller = new AbortController();
         request.current = controller;
         setLoading(true);
@@ -71,11 +136,14 @@ export function VoiceprintTranscriptNames({
         } finally {
             if (!controller.signal.aborted) setLoading(false);
         }
-    }, [endpoint]);
+    }, [endpoint, releaseAudio]);
     useEffect(() => {
         void load();
-        return () => request.current?.abort();
-    }, [load]);
+        return () => {
+            request.current?.abort();
+            releaseAudio();
+        };
+    }, [load, releaseAudio]);
 
     const assignments = Object.entries(selections)
         .filter(([, id]) => id)
@@ -167,15 +235,62 @@ export function VoiceprintTranscriptNames({
                                     ))}
                                 </select>
                             </label>
-                            <p
-                                dir="auto"
-                                className="mt-1 line-clamp-2 text-xs text-muted-foreground"
-                            >
-                                <span dir="ltr" className="me-2 tabular-nums">
-                                    {speaker.timestamp}
-                                </span>
-                                {speaker.excerpt}
-                            </p>
+                            <div className="mt-1 flex items-center gap-2">
+                                <p
+                                    dir="auto"
+                                    className="min-w-0 flex-1 line-clamp-2 text-xs text-muted-foreground"
+                                >
+                                    <span
+                                        dir="ltr"
+                                        className="me-2 tabular-nums"
+                                    >
+                                        {speaker.timestamp}
+                                    </span>
+                                    {speaker.excerpt}
+                                </p>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="shrink-0"
+                                    disabled={!speaker.preview}
+                                    aria-label={uiText(
+                                        previewSpeaker === speaker.speaker
+                                            ? "Stop audio preview for {speaker}"
+                                            : "Play original audio for {speaker}",
+                                        { speaker: speaker.speaker },
+                                    )}
+                                    title={
+                                        !speaker.preview
+                                            ? uiText(
+                                                  "Audio preview unavailable for this timestamp.",
+                                              )
+                                            : speaker.preview.sharedTimestamp
+                                              ? uiText(
+                                                    "Multiple turns share this timestamp.",
+                                                )
+                                              : undefined
+                                    }
+                                    onClick={() => listen(speaker)}
+                                >
+                                    {previewSpeaker === speaker.speaker ? (
+                                        <Square
+                                            aria-hidden="true"
+                                            className="size-3"
+                                        />
+                                    ) : (
+                                        <Play
+                                            aria-hidden="true"
+                                            className="size-3"
+                                        />
+                                    )}
+                                    {uiText(
+                                        previewSpeaker === speaker.speaker
+                                            ? "Stop preview"
+                                            : "Play original audio",
+                                    )}
+                                </Button>
+                            </div>
                         </li>
                     ))}
                 </ul>
@@ -186,6 +301,11 @@ export function VoiceprintTranscriptNames({
                     )}
                 </p>
             ) : null}
+            {previewError && (
+                <p role="alert" className="text-sm text-destructive">
+                    {uiText("Failed to play audio")}
+                </p>
+            )}
             {error && (
                 <p role="alert" className="text-sm text-destructive">
                     {uiText(error)}

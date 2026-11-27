@@ -175,6 +175,7 @@ export function VoiceprintButton({
                 {editingTranscript ? (
                     <VoiceprintTranscriptNames
                         endpoint={endpoint}
+                        recordingId={recordingId}
                         onBack={() => setEditingTranscript(false)}
                         onApplied={() => handleOpenChange(false)}
                     />

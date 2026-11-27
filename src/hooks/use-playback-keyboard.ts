@@ -17,8 +17,8 @@ interface Options {
  * ArrowUp   -> volume +5
  * ArrowDown -> volume -5
  *
- * Skipped while the user is typing in an input/textarea/contentEditable
- * so the shortcuts don't fight form fields. Listener attaches once and
+ * Skipped in editable fields and dialogs to leave keyboard controls to
+ * the active UI. Listener attaches once and
  * delegates to the supplied callbacks -- the engine hook owns the
  * actual state mutations so this hook stays purely about key->intent
  * mapping.
@@ -34,7 +34,9 @@ export function usePlaybackKeyboard({
             if (
                 target.tagName === "INPUT" ||
                 target.tagName === "TEXTAREA" ||
-                target.isContentEditable
+                target.isContentEditable ||
+                (target instanceof Element &&
+                    target.closest("select, [role=dialog]"))
             ) {
                 return;
             }
